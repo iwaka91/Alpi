@@ -50,3 +50,4 @@ Galeri harus mudah dipakai pada layar HP, hemat data melalui thumbnail, dan tida
 ## Belum diputuskan
 
 Penyedia backend/penyimpanan dan kuota, retensi album, domain, ukuran/kompresi keluaran, PIN atau publik sebagai default, dan apakah terbit otomatis dibuka sebagai mode produksi. Semua dicatat sebagai pilihan implementasi, bukan persetujuan tersirat.
+

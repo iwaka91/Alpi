@@ -1,0 +1,12 @@
+.gradle/
+**/build/
+local.properties
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+data/
+*.apk
+*.jks
+*.keystore
+screenshots/

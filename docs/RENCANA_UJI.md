@@ -37,3 +37,4 @@ Rilis awal menargetkan **satu operator, satu acara aktif, frame statis PNG, gale
 - Tentukan album publik via tautan atau PIN sebagai default, masa tayang dan prosedur hapus.
 - Tetapkan ukuran unggahan dan apakah tamu mengunduh salinan ber-frame saja.
 - Setujui alur terbit otomatis atau tinjau dahulu untuk pemakaian nyata.
+

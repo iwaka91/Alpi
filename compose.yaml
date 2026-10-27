@@ -1,0 +1,15 @@
+services:
+  alpi:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      ALPI_ADMIN_TOKEN: ${ALPI_ADMIN_TOKEN:?Set token operator pada .env}
+      ALPI_PUBLIC_BASE_URL: ${ALPI_PUBLIC_BASE_URL:-}
+    volumes:
+      - alpi-data:/app/data
+    restart: unless-stopped
+volumes:
+  alpi-data:

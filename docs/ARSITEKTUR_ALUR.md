@@ -49,3 +49,4 @@ Penyedia belum dipilih. Penilaian nanti harus memakai simulasi: jumlah foto × u
 ## Privasi
 
 Wajah tamu dapat terlihat dalam album. Tetapkan tanda pemberitahuan di lokasi acara, kebijakan akses (tautan publik atau PIN), cara meminta foto disembunyikan, dan tanggal penghapusan album sebelum produksi.
+
