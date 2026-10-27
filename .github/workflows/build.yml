@@ -24,7 +24,7 @@ jobs:
         working-directory: android
       - uses: actions/upload-artifact@v4
         with:
-          name: Alpi-0.1.0-beta-debug-apk
+          name: Alpi-0.2.0-beta-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
       - uses: actions/upload-artifact@v4
         if: always()
@@ -40,3 +40,34 @@ jobs:
           python-version: '3.12'
       - run: pip install -r server/requirements-dev.txt
       - run: python -m pytest server/tests -q
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [android, server]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: alpi-beta-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Alpi-0.2.0-beta-debug-apk
+          path: apk
+      - name: Publish tested beta APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          ALPI_VERSION=$(sed -n "s/.*versionName '\([^']*\)'.*/\1/p" android/app/build.gradle)
+          ALPI_TAG="v$ALPI_VERSION"
+          if gh release view "$ALPI_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists; preserving its APK."
+            exit 0
+          fi
+          cp apk/app-debug.apk "Alpi-v$ALPI_VERSION.apk"
+          sha256sum "Alpi-v$ALPI_VERSION.apk" > "Alpi-v$ALPI_VERSION.apk.sha256"
+          gh release create "$ALPI_TAG" "Alpi-v$ALPI_VERSION.apk" "Alpi-v$ALPI_VERSION.apk.sha256" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "Alpi $ALPI_VERSION" --notes-file "docs/RELEASE_NOTES_v$ALPI_VERSION.md"

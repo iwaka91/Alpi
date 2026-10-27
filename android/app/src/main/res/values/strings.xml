@@ -1,5 +1,3 @@
 <resources>
-    <string name="publish_automatically">Terbit otomatis setelah diproses</string>
-    <string name="wifi_only">Unggah hanya melalui Wi-Fi</string>
-    <string name="allow_http">Izinkan HTTP untuk uji jaringan lokal</string>
+    <string name="app_name">Alpi</string>
 </resources>

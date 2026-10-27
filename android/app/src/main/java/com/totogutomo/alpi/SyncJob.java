@@ -30,7 +30,6 @@ public class SyncJob extends JobService {
     JobScheduler scheduler = (JobScheduler) c.getSystemService(JOB_SCHEDULER_SERVICE);
     scheduler.schedule(
         new JobInfo.Builder(RETRY, new ComponentName(c, SyncJob.class))
-            .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
             .setMinimumLatency(10000)
             .setBackoffCriteria(30000, JobInfo.BACKOFF_POLICY_EXPONENTIAL)
             .build());
@@ -55,9 +54,7 @@ public class SyncJob extends JobService {
                     .build());
           }
           boolean pending =
-              !Store.get(this)
-                  .rows("SELECT id FROM queue WHERE state IN ('NEW','READY') LIMIT 1")
-                  .isEmpty();
+              !Store.get(this).rows("SELECT id FROM queue WHERE state='NEW' LIMIT 1").isEmpty();
           jobFinished(params, params.getJobId() == RETRY && pending);
         });
     return true;

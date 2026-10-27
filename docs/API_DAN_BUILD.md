@@ -1,51 +1,41 @@
-# API dan build
+# Build dan integrasi Alpi 0.2
 
 ## Build Android
 
-JDK 17, Android SDK 35 dan Build Tools 35.0.0. Tidak menggunakan kamera internal atau WebView untuk menangkap foto.
+JDK 17, Gradle wrapper 8.13, Android Gradle Plugin 8.9.2, compile/target SDK 35, min SDK 29.
 
-```bash
+```sh
 cd android
-./gradlew assembleDebug lintDebug testDebugUnitTest
+./gradlew clean assembleDebug lintDebug testDebugUnitTest --no-daemon
 ```
 
-Windows: gunakan `gradlew.bat`. APK: `android/app/build/outputs/apk/debug/app-debug.apk`. GitHub Actions membangun APK dan menjalankan lint setiap push ke main. Artifact debug untuk pengujian, belum konfigurasi signing rilis.
+Hasil: app/build/outputs/apk/debug/app-debug.apk. APK bertanda tangan debug untuk beta; tanda tangan dari mesin/CI berbeda dapat tidak kompatibel untuk pembaruan. Jangan menghapus instalasi lama sebelum mengekspor hasil penting. Rilis produksi memerlukan keystore yang disimpan pemilik dan proses signing tetap.
 
-## Uji server
+Dependensi runtime: ZXing Core 3.5.3 untuk QR lokal (Apache-2.0). Dependensi tes: JUnit 4.13.2 dan Robolectric 4.14.1. Tidak ada SDK/API Google Photos, OAuth client ID, API key atau token operator dalam APK 0.2.
 
-```bash
-pip install -r server/requirements-dev.txt
-python -m pytest server/tests -q
-```
+GitHub Actions menjalankan assembleDebug, lintDebug dan testDebugUnitTest. Setelah seluruh pemeriksaan lulus pada push ke main, job release membuat prerelease sesuai versionName bila tag rilis belum ada. Biner rilis diberi nama Alpi-v<versi>.apk. Rilis lama tidak ditimpa oleh build ulang.
 
-SQLite menggunakan WAL dan parameter query; media berada pada direktori privat server dan dibaca lewat route yang memeriksa otorisasi album dan visibilitas. Set `ALPI_DATA` untuk mengganti direktori persisten, `ALPI_ADMIN_TOKEN` untuk hak operator, dan `ALPI_PUBLIC_BASE_URL` untuk URL stabil yang masuk QR.
+## Integrasi Android
 
-## Endpoint
-
-Operator: header `Authorization: Bearer <token operator>`.
-
-| Metode / route | Fungsi |
+| Tindakan | Kontrak |
 | --- | --- |
-| GET /api/health | Status server dan versi. |
-| PUT /api/events/{id} | Buat/perbarui acara dengan JSON title, description, pin. ID 32 karakter hex; URL album tetap untuk ID yang sama. |
-| GET /api/events | Daftar acara operator dan URL. |
-| GET /api/events/{id}/qr | QR PNG berisi URL album. |
-| PUT /api/events/{id}/photos/{photo_id} | Badan JPEG biner, maksimum 20 MB. `X-Captured-At` berisi waktu milidetik. ID stabil digunakan sebagai kunci idempotensi. |
-| PATCH /api/events/{id}/photos/{photo_id} | JSON `visible: true/false`. |
-| GET /api/albums/{album_key} | Metadata dan daftar foto terbit. Album PIN memerlukan cookie dari unlock. |
-| POST /api/albums/{album_key}/unlock | JSON pin; cookie HttpOnly berumur satu hari. Perubahan PIN membatalkan cookie sebelumnya. |
-| GET /media/{album_key}/{photo_id} | JPEG; query `thumbnail=true` atau `download=true` opsional. Pemeriksaan akses tetap berlaku. |
-| GET /a/{album_key} | Halaman album tamu. |
+| Kamera | INTENT_ACTION_STILL_IMAGE_CAMERA; Alpi tidak memiliki izin CAMERA. |
+| Album | ACTION_VIEW tautan HTTPS Google Photos; package Google Photos diprioritaskan, browser sebagai cadangan. |
+| Satu hasil | ACTION_SEND image/jpeg, EXTRA_STREAM, ClipData, FLAG_GRANT_READ_URI_PERMISSION. |
+| Banyak hasil | ACTION_SEND_MULTIPLE, daftar URI pada EXTRA_STREAM dan ClipData, izin baca. Maksimal 30 foto dari satu acara. |
+| Galeri | MediaStore Images, IS_PENDING selama penulisan, Pictures/Alpi/kode-acara, salinan app-owned. |
+| QR | PNG 720×720, quiet zone 4 modul, koreksi kesalahan M, data persis tautan album. |
 
-QR dan album_key tidak memuat token operator atau PIN. Pembacaan file media tidak tersedia melalui static directory. Untuk deployment dengan reverse proxy, konfigurasi origin HTTPS dan header/proxy yang dipercaya secara eksplisit; jangan menerima header forwarded dari internet tanpa verifikasi proxy.
+Google Photos mengendalikan layar penerimaan. Intent tidak memuat parameter album tersembunyi atau janji pemilihan album. Hasil aktivitas/penutupan chooser tidak dipakai sebagai bukti keberhasilan unggahan. Pengiriman selalu dipicu dari tombol operator.
 
-## Struktur sumber
+Provider baca-saja Alpi membatasi URI ke dua segmen dan berkas langsung pada results, deliveries atau cache share. Direktori lain dan traversal ditolak. Salinan kiriman di files/deliveries tidak berubah saat hasil utama diproses ulang; dibersihkan setelah tujuh hari hanya untuk kelompok yang sudah selesai/dibatalkan.
 
-- `android/`: APK Java native, MediaStore, SQLite, JobScheduler, foreground dataSync, Android Keystore, ImageDecoder/Canvas dan HttpURLConnection.
-- `server/app.py`: API FastAPI, SQLite dan penyimpanan JPEG/thumbnail lokal.
-- `server/web/`: galeri HTML/CSS/JavaScript responsif.
-- `server/tests/`: autentikasi, PIN, duplikasi, moderasi, isolasi album dan unduhan.
-- `MULAI_SERVER_WINDOWS.bat` / `server/run.py`: peluncur uji LAN.
-- `compose.yaml`: opsi container dengan disk persisten.
+## Penyimpanan dan privasi
 
-Token operator tidak ditanam di kode/APK. File `.env`, foto, database, build dan keystore tidak di-commit.
+SQLite alpi.db versi 2 menyimpan acara, jendela sesi, antrean, URI galeri dan delivery_batches. Frame/hasil berada di files privat. Tautan berbagi album disimpan pada acara; hak akses tamu mengikuti Google Photos. Backup Android dimatikan. Menghapus data/uninstall menghapus penyimpanan privat.
+
+Tidak ada izin INTERNET atau ACCESS_NETWORK_STATE dalam APK 0.2. Proses lokal tidak bergantung pada jaringan. Google Photos dan browser memakai koneksinya sendiri untuk unggah/album.
+
+## Riwayat server
+
+Folder server/, compose.yaml, .env.example dan MULAI_SERVER_WINDOWS.bat adalah backend 0.1 yang dipertahankan. Kontrak API dan cara menjalankannya dapat dilihat pada [sumber versi 0.1](https://github.com/iwaka91/Alpi/tree/bb0d4ad93c5d4b0d860fee4f8bf9fa45d80e1b74). APK 0.2 tidak memakai backend ini. Tes API lama tetap dijalankan CI untuk menjaga sumber yang dipertahankan.

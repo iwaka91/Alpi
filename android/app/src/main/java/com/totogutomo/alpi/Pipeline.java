@@ -118,20 +118,11 @@ public final class Pipeline {
     }
   }
 
-  static boolean network(Context c) {
-    ConnectivityManager m = (ConnectivityManager) c.getSystemService(Context.CONNECTIVITY_SERVICE);
-    Network n = m.getActiveNetwork();
-    NetworkCapabilities cap = m.getNetworkCapabilities(n);
-    if (cap == null) return false;
-    return !Prefs.p(c).getBoolean("wifi", false)
-        || cap.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
-        || cap.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET);
-  }
-
   public static synchronized void run(Context c) {
     Store s = Store.get(c);
     if (!recovered) {
       s.recover();
+      Delivery.cleanup(c);
       recovered = true;
     }
     try {
@@ -140,50 +131,25 @@ public final class Pipeline {
     } catch (Exception e) {
       Prefs.set(c, "scan_error", safe(e));
     }
-    List<JSONObject> jobs =
+    for (JSONObject item :
         s.rows(
-            "SELECT * FROM queue WHERE state IN ('NEW','READY') AND next_try<=? ORDER BY created"
-                + " LIMIT 12",
-            Long.toString(System.currentTimeMillis()));
-    Set<String> synced = new HashSet<>();
-    for (JSONObject item : jobs) {
+            "SELECT * FROM queue WHERE state='NEW' AND next_try<=? ORDER BY created LIMIT 12",
+            Long.toString(System.currentTimeMillis()))) {
       String id = item.optString("id");
-      boolean ready = item.optString("state").equals("READY");
       try {
-        if (!ready) {
-          s.state(id, "PROCESSING", null, "", 0);
-          String path = process(c, item);
-          JSONObject config = new JSONObject(item.getString("config"));
-          ready = config.optInt("automatic") == 1;
-          s.state(id, ready ? "READY" : "REVIEW", path, "", 0);
-          item.put("output", path);
-          if (!ready) continue;
-        }
-        if (!network(c)) {
-          s.state(id, "READY", null, "Menunggu koneksi yang diizinkan", 0);
-          continue;
-        }
-        String eventId = item.getString("event_id");
-        if (!synced.contains(eventId)) {
-          new Api(c).sync(s.event(eventId));
-          synced.add(eventId);
-        }
-        File output = new File(item.getString("output"));
-        if (!output.isFile()) {
-          s.state(id, "ERROR", null, "Hasil lokal hilang. Pilih Proses ulang.", 0);
-          continue;
-        }
-        s.state(id, "UPLOADING", null, "", 0);
-        new Api(c).upload(item, output);
-        s.state(id, "DONE", null, "", 0);
+        s.state(id, "PROCESSING", null, "", 0);
+        String path = process(c, item);
+        JSONObject config = new JSONObject(item.getString("config"));
+        s.state(id, config.optInt("automatic") == 1 ? "READY" : "REVIEW", path, "", 0);
       } catch (Exception e) {
         s.attempt(id);
         int count = item.optInt("attempts") + 1;
         long retry =
             System.currentTimeMillis() + Math.min(300000, 5000L * (1L << Math.min(count, 6)));
-        s.state(id, count >= 5 ? "ERROR" : (ready ? "READY" : "NEW"), null, safe(e), retry);
+        s.state(id, count >= 5 ? "ERROR" : "NEW", null, safe(e), retry);
       }
     }
+    if (!s.rows("SELECT id FROM queue WHERE state='NEW' LIMIT 1").isEmpty()) SyncJob.retry(c);
   }
 
   public static String safe(Exception e) {

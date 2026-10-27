@@ -1,87 +1,73 @@
-# Panduan uji Alpi 0.1.0-beta
+# Panduan Alpi 0.2.0-beta
 
-Alpi terdiri dari APK operator dan server yang sekaligus menyajikan album web. APK bisa mendeteksi dan memproses foto secara lokal. Unggahan dan QR tamu memerlukan server yang dapat dijangkau. Paket ini tidak otomatis menyewa hosting atau mengaktifkan domain publik.
+Versi ini memakai Google Photos untuk album tamu. Tidak perlu laptop server, token operator, proyek Google Cloud atau login Google di Alpi. Akun Google dikelola di aplikasi Google Photos.
 
-## 1. Siapkan server pada laptop Windows
+## 1. Pasang APK
 
-1. Pasang Python 3.12 atau lebih baru. Saat memasang, aktifkan pilihan menambahkan Python ke PATH.
-2. Unduh ZIP repo atau paket server, lalu ekstrak ke satu folder.
-3. Klik dua kali **MULAI_SERVER_WINDOWS.bat**. Pemasangan dependensi pertama membutuhkan internet. Pemakaian lokal selanjutnya hanya memerlukan jaringan antara HP dan laptop.
-4. Biarkan jendela server terbuka. Jika Windows meminta izin firewall, izinkan untuk jaringan privat yang dipakai saat uji.
-5. Catat alamat server yang ditampilkan, misalnya `http://192.168.1.10:8000`. Jika laptop memiliki VPN atau beberapa adaptor, gunakan IP IPv4 Wi-Fi dari `ipconfig`.
-6. Buka file `.env` yang dibuat di folder tersebut menggunakan Notepad. Salin nilai `ALPI_ADMIN_TOKEN` setelah tanda `=`. Simpan file ini untuk pemakaian berikutnya; jangan membagikan token kepada tamu.
+Unduh `Alpi-v0.2.0-beta.apk` dari [rilis GitHub](https://github.com/iwaka91/Alpi/releases/tag/v0.2.0-beta), lalu pasang pada Android 10 atau lebih baru.
 
-HP fotografer, laptop server, dan HP tamu harus dapat saling terhubung di jaringan yang sama untuk uji LAN. Jaringan tamu dengan isolasi antarperangkat dapat menghalangi akses. Album lokal tidak bisa dibuka dari internet/data seluler luar jaringan itu.
+APK beta memakai tanda tangan debug. Jika Android menolak pembaruan karena tanda tangan berbeda dengan APK 0.1, simpan dulu hasil penting melalui menu berbagi versi lama, lalu hapus aplikasi lama dan pasang versi ini. Menghapus Alpi juga menghapus acara, frame impor dan hasil privat di Alpi. Foto asli kamera tidak dihapus. Migrasi database otomatis berlaku bila APK dapat dipasang sebagai pembaruan dengan tanda tangan yang sama.
 
-## 2. Pasang dan hubungkan APK
+Izinkan **semua foto** dan notifikasi. Izin beberapa foto saja tidak cukup untuk mendeteksi jepretan berikutnya secara otomatis. Pada Xiaomi/HyperOS, periksa pengaturan baterai Alpi dan notifikasi sesi; gunakan mode baterai yang mengizinkan pemantauan selama acara.
 
-1. Pasang APK beta pada HP Android 10 atau lebih baru. Izinkan pemasangan dari sumber file yang Anda gunakan bila diminta.
-2. Buka **Alpi → Lainnya → Server & koneksi**.
-3. Masukkan alamat server dan token operator. Untuk contoh HTTP lokal, centang **Izinkan HTTP untuk uji jaringan lokal**.
-4. Folder kamera awal: `DCIM/Camera/`. Jika HP menyimpan ke folder lain dalam DCIM, sesuaikan path yang tampil pada MediaStore.
-5. Berikan izin **semua foto** dan izin notifikasi. Izin beberapa foto terpilih belum cukup untuk mendeteksi foto baru otomatis.
+## 2. Siapkan album Google Photos
 
-Token disimpan terenkripsi dengan Android Keystore. Foto hasil, frame dan antrean disimpan pada ruang privat aplikasi; menghapus data/uninstall Alpi akan menghapusnya. Foto asli kamera tetap berada di galeri HP.
+1. Buka Google Photos dengan akun pemilik acara.
+2. Buat album acara, aktifkan berbagi tautan, dan salin tautannya.
+3. Pada Alpi → **Acara → Buat acara**, isi nama dan tempel tautan berbagi. Contoh format: `https://photos.app.goo.gl/...` atau `https://photos.google.com/share/...?key=...`.
+4. Simpan acara. Gunakan **Buka album Google Photos** untuk memeriksa tujuan.
+5. Buat/bagikan QR acara. QR mengarah persis ke tautan yang disimpan dan dibuat lokal tanpa koneksi internet.
 
-## 3. Buat acara dan frame
+Tautan album bukan alamat unggah. Alpi tidak membuat atau mengelola album Google Photos secara otomatis. Akses tamu dan kemampuan berkolaborasi mengikuti pengaturan Google Photos. Uji QR dari HP tamu sebelum dicetak dan jangan mengganti tautan setelah QR dibagikan.
 
-1. Buka **Acara → Buat acara**. Isi nama, informasi, dan PIN tamu opsional.
-2. Pilih acara tersebut. Buka **Frame & postproses**, lalu impor PNG transparan potret dan landscape. Gunakan rasio frame yang sama dengan rasio foto kamera, misalnya 3:4 dan 4:3. Frame ditempatkan pada seluruh kanvas foto; bagian PNG yang transparan memperlihatkan foto.
-3. Teks pita di bawah foto dapat diisi tanpa perlu membuat PNG. Keduanya juga bisa digunakan bersamaan; pastikan teks tidak bertumpuk dengan elemen frame.
-4. Pilih **Hubungkan / perbarui album online**. Setelah berhasil, tersedia tombol QR, buka album, dan bagikan tautan.
-5. Mode awal adalah **tinjau dahulu**. Aktifkan **Terbit otomatis setelah diproses** bila ingin hasil langsung diunggah tanpa persetujuan per foto.
+## 3. Pasang frame dan mulai sesi
 
-Frame, teks pita, dan mode terbit disalin pada saat Mulai Sesi. Jeda/akhiri lalu mulai sesi baru setelah mengubahnya. Bila hanya memasang satu orientasi frame, foto orientasi lain ditahan dengan pesan sampai frame sesuai tersedia. Tanpa frame PNG sama sekali, foto tetap bisa diproses; teks pita bersifat opsional.
+1. Di acara, impor frame PNG transparan untuk potret dan/atau landscape. Gunakan rasio yang sama dengan hasil kamera.
+2. Isi **Teks pita** jika ingin penanda kegiatan tanpa desain PNG.
+3. Pilih mode: sakelar mati berarti hasil menunggu tinjauan; sakelar hidup berarti langsung masuk **Siap Kirim** setelah framing. Sakelar ini tidak mengirim ke Google Photos otomatis.
+4. Pilih acara, lalu **Mulai sesi** di Beranda.
+5. Tekan **Buka kamera bawaan** dan memotret seperti biasa.
+6. Kembali ke Alpi untuk meninjau hasil. Selama sesi, notifikasi Alpi tetap terlihat.
 
-## 4. Memotret dan mengambil foto
+Hanya foto baru di folder kamera setelah sesi dimulai yang dipantau. Folder default `DCIM/Camera/` dapat diganti di **Lainnya → Folder kamera** saat sesi berhenti. Foto lama, screenshot dan hasil ekspor `Pictures/Alpi` tidak dipantau. Perubahan frame/mode berlaku pada sesi baru. Hasil lama dapat diproses ulang memakai konfigurasi acara sekarang.
 
-1. Di **Beranda**, tekan **Mulai sesi** lalu **Buka kamera bawaan**.
-2. Potret satu foto landscape dan satu potret. Periksa notifikasi Alpi tetap aktif.
-3. Kembali ke **Foto**. Pilih **Lihat hasil foto** untuk memeriksa frame. Dalam mode tinjau, tekan **Setujui & unggah**.
-4. Di menu **Antrean**, amati status dan pesan gangguan. Tombol coba lagi tersedia bila item gagal berulang.
-5. Tampilkan QR acara. Tamu memindai QR dengan kamera HP, memasukkan PIN jika dipakai, lalu membuka dan mengunduh foto.
-6. Album diperbarui otomatis sekitar 12 detik sekali saat halaman terlihat. Tombol **Perbarui** tersedia untuk pemeriksaan manual.
-7. Foto terunggah dapat disembunyikan dari album melalui menu Foto. Pengaturan ini juga memblokir akses langsung ke file lewat server; salinan yang sudah diunduh tamu tidak dapat ditarik kembali.
+Hasil JPEG: sisi panjang maksimal 2.560 piksel, kualitas 92. Foto asli tidak diubah. Jika frame salah orientasi belum dipasang sementara orientasi lain memiliki frame, Alpi menahan foto untuk diperbaiki.
 
-**Jeda / akhiri sesi** menghentikan penerimaan foto baru; item yang sudah masuk antrean tetap ditangani. Untuk menjeda unggahan seluruhnya, pilih jaringan yang tidak tersedia atau hentikan aplikasi; pekerjaan dilanjutkan setelah dibuka kembali. Versi ini belum memiliki tombol jeda unggah terpisah.
+## 4. Tinjau dan kirim satu kelompok foto
 
-## 5. Skenario uji yang perlu dilaporkan
+1. Di **Foto**, perbesar hasil, tekan **Setujui → Siap Kirim** atau **Lewati foto ini**. Foto dilewati dapat dikembalikan untuk ditinjau.
+2. Buka **Siap Kirim**. Pastikan acara benar; Alpi tidak mencampur foto beberapa acara dalam satu kiriman.
+3. Centang foto atau pilih 30 pertama. Maksimal 30 foto per kiriman agar tidak membebani aplikasi penerima.
+4. Tekan **Kirim pilihan ke Google Photos**. Alpi menyerahkan salinan hasil JPEG melalui fitur berbagi Android. Jika Google Photos tidak dapat menerima langsung, menu berbagi ditampilkan.
+5. Selesaikan langkah yang ditampilkan Google Photos. Jika penerima hanya mengunggah ke koleksi utama, tambahkan foto yang sudah terunggah ke album tujuan dari dalam Google Photos. Alpi tidak dapat menentukan album pada antarmuka tersebut.
+6. Kembali ke Alpi. Pada kartu **Menunggu konfirmasi kiriman**, buka album dan periksa semua hasil.
+7. Setelah foto benar-benar terlihat di album, tekan **Sudah masuk album · tandai selesai**, lalu konfirmasi.
 
-| Uji | Hasil yang diharapkan |
-| --- | --- |
-| Potret dengan kamera bawaan | Foto baru muncul satu kali pada Alpi, foto lama dan screenshot tidak ikut. |
-| Frame dua orientasi | Orientasi benar, foto asli tetap bersih, hasil dapat dibagikan. |
-| Mode tinjau | Foto belum muncul di album sebelum disetujui. |
-| Putus koneksi setelah 5 foto | Antrean tersimpan dan unggahan dapat diteruskan tanpa foto ganda. |
-| Jeda lalu potret | Foto selama jeda tidak masuk sesi. |
-| Layar terkunci / kembali ke kamera | Periksa apakah pemantauan masih aktif dan catat jeda tampil foto. |
-| Tutup paksa / restart HP | Data antrean tetap ada; buka Alpi dan mulai/lanjutkan sesi secara sadar. |
-| Sembunyikan foto | Foto hilang dari album dan tautan file tidak bisa diunduh lagi. |
-| Dua HP tamu | Keduanya bisa membuka QR yang sama dan mengunduh JPEG. |
+Status selesai adalah catatan operator, bukan hasil verifikasi Google Photos. Menutup menu berbagi, membuka aplikasi penerima atau kembali ke Alpi tidak otomatis menandai berhasil.
 
-Catat versi Android/HyperOS, orientasi, mode terbit, jenis jaringan, jumlah foto, dan waktu jepret sampai muncul di web. Jangan menganggap beta sudah teruji di Xiaomi sebelum skenario perangkat nyata dijalankan.
+Jika dibatalkan atau belum berhasil, tekan **Belum jadi / kembalikan ke Siap Kirim**. Untuk mencoba lagi dengan salinan yang sama, tekan **Buka kiriman yang sama lagi**; periksa album lebih dahulu agar tidak mengirim duplikat. Hanya satu kelompok kiriman dapat menunggu konfirmasi pada satu waktu. Foto baru tetap dapat dideteksi dan diproses sambil menunggu.
 
-## 6. Batas beta
+## 5. Cadangan: simpan ke galeri
 
-- Satu operator dan satu sesi aktif pada HP; server dapat menampung beberapa acara.
-- Keluaran JPEG maksimal sisi panjang 2.560 px dengan kualitas 92; bukan salinan resolusi asli penuh.
-- Layanan aktif menggunakan notifikasi Android dan pekerjaan cadangan terjadwal. Android 15+ membatasi waktu layanan `dataSync`; saat timeout sesi dihentikan dan alasannya ditampilkan. Respons kamera/HyperOS dan kebijakan baterai tetap perlu uji perangkat.
-- Rekonsiliasi foto terlambat mencakup jendela sesi yang berakhir dalam 24 jam terakhir; antrean yang sudah tercatat tidak memiliki batas 24 jam tersebut.
-- Foto dengan waktu pengambilan tidak tersedia bergantung pada ketelitian waktu simpan MediaStore. Foto burst, HDR yang lambat selesai, dan jam perangkat berubah perlu diuji.
-- Web mendukung unduh satu foto dan pilihan beberapa file. Browser tertentu meminta izin unduhan berulang; gunakan unduh satu foto bila unduhan massal dibatasi.
-- Mode HTTP untuk uji jaringan tepercaya. Gunakan HTTPS sebelum pemakaian publik.
-- APK memakai tanda tangan debug untuk uji. Penandatanganan rilis tetap perlu disiapkan sebelum distribusi produksi; build debug dari mesin/CI berbeda mungkin perlu uninstall karena kunci berbeda.
+Jika Google Photos tidak menerima kiriman atau tombol terima unggahan tidak sesuai:
 
-## 7. Menjalankan server melalui terminal atau Docker
+1. Pada Siap Kirim, pilih hasil lalu tekan **Simpan pilihan ke galeri HP**. Tombol serupa tersedia untuk kiriman yang sedang menunggu konfirmasi.
+2. Buka Google Photos → folder di perangkat/**Di perangkat ini**; temukan `Alpi` atau folder berkode acara. Label menu dapat berbeda antarversi Google Photos.
+3. Pilih hasil, unggah bila perlu, lalu tambahkan ke album acara dari Google Photos.
+4. Periksa album. Kiriman tetap menunggu konfirmasi di Alpi; tandai selesai hanya sesudah semua foto terlihat.
 
-```bash
-python -m venv .venv
-# Windows: .venv\Scripts\activate
-# Linux/macOS: source .venv/bin/activate
-pip install -r server/requirements.txt
-python server/run.py
-```
+Ekspor tersimpan di `Pictures/Alpi/<8 karakter kode acara>/`, nama berkas `ALPI_<id foto>.jpg`. Ekspor ulang memakai berkas milik Alpi yang sama selama salinan galeri masih ada. Jika salinan sebelumnya dihapus, Alpi membuat salinan baru. Menyimpan ke galeri sendiri tidak berarti mengunggah, dan pencadangan folder Google Photos tidak otomatis menambahkan foto ke album tertentu.
 
-Untuk Docker, salin `.env.example` menjadi `.env`, isi token acak minimal 24 karakter dan `ALPI_PUBLIC_BASE_URL`, lalu jalankan `docker compose up -d --build`. Data disimpan di named volume `alpi-data`; lakukan backup volume bersama database dan JPEG. Gunakan satu proses server pada rilis awal.
+## 6. Tamu
 
-Untuk akses internet: tempatkan server pada host dengan disk persisten, pasang HTTPS melalui reverse proxy, isi URL publik pada `.env`, lalu gunakan alamat yang sama pada APK. Penyedia hosting/domain dan kuota belum dipilih. Server tidak menggunakan layanan foto berbayar, tetapi biaya host, listrik/jaringan dan kapasitas disk tergantung penempatan.
+Pasang QR pada area acara. Tamu membuka tautan album Google Photos, memilih foto dan menggunakan fitur unduh yang tersedia. Tidak perlu memasang Alpi. Kebutuhan login, menu unduh dan pengaturan akses mengikuti Google Photos/browser tamu; uji dengan HP lain sebelum acara.
+
+## 7. Data dan batas pemantauan
+
+- Acara, frame, antrean dan hasil berada di penyimpanan privat Alpi. Kiriman menggunakan salinan tetap agar proses ulang tidak mengubah berkas yang sedang diterima Google Photos.
+- Salinan kiriman selesai/dibatalkan dapat dibersihkan otomatis setelah tujuh hari. Salinan kiriman menunggu konfirmasi dipertahankan. Hasil utama tetap tersimpan di Alpi.
+- Menutup paksa, menghapus data aplikasi atau aturan baterai perangkat dapat menghentikan pemantauan. Setelah HP dimulai ulang, buka Alpi dan mulai sesi lagi.
+- Android 15+ membatasi durasi layanan latar jenis dataSync; saat batas tercapai Alpi mengakhiri sesi dan menampilkan pesan untuk memulai sesi baru.
+- Rekonsiliasi foto terlambat tersimpan berlangsung hingga 24 jam setelah sesi berakhir; antrean yang sudah tercatat tidak kedaluwarsa setelah 24 jam.
+- Pemrosesan lokal/QR dapat berjalan tanpa internet. Unggahan Google Photos dan akses album oleh tamu memerlukan internet serta ruang akun Google yang mencukupi.
+- Riwayat server 0.1 dipertahankan saat migrasi, tetapi tautan server lama tidak dipakai sebagai tautan Google Photos. Isikan tautan Google Photos pada acara.

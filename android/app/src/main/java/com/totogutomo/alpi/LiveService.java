@@ -66,7 +66,7 @@ public class LiveService extends Service {
     try {
       startForeground(
           1,
-          notification(this, "Memantau kamera · frame dan unggah otomatis"),
+          notification(this, "Memantau kamera · menyiapkan hasil frame di HP"),
           ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
       running = true;
       Prefs.set(this, "service_error", "");

@@ -1,52 +1,44 @@
-# Arsitektur dan alur foto
+# Arsitektur Alpi 0.2
 
-Status: rancangan teknis awal · 27 Oktober 2026
+APK Android Java menangani deteksi kamera, pengolahan frame, tinjauan, antrean dan QR secara lokal. Aplikasi Google Photos menangani autentikasi akun, unggah, album dan akses tamu. Tidak ada komunikasi langsung APK Alpi ke layanan internet.
 
-## Komponen
+## Penyiapan acara
 
-1. **Kamera bawaan Android** menyimpan foto asli ke koleksi media.
-2. **APK Alpi** memantau perubahan foto ketika sesi aktif, membaca item yang diizinkan, membuat salinan ber-frame, dan mengelola antrean lokal.
-3. **Backend album** memverifikasi hak unggah operator, menyimpan metadata acara/foto, dan membuat akses unduh untuk tamu.
-4. **Penyimpanan objek** menampung thumbnail dan foto hasil. Foto asli di HP tetap sumber utama/arsip lokal.
-5. **Web album** mengambil daftar foto terbit dan melayani pratinjau/unduhan. QR memuat URL album acara yang stabil.
+Operator membuat album di Google Photos dan menyalin tautan berbagi ke acara Alpi. Alpi tidak menafsirkan tautan sebagai ID album API. QR menyimpan tautan berbagi yang sama. Album dapat dibuka dari Alpi memakai ACTION_VIEW dengan Google Photos diprioritaskan dan browser sebagai cadangan.
 
-## Urutan satu foto
+## Deteksi dan pemrosesan
 
-1. Operator memilih acara dan frame lalu menekan Mulai Sesi; aplikasi mencatat penanda sesi.
-2. Kamera bawaan memotret dan menyimpan foto. Aplikasi mendeteksi perubahan melalui koleksi media, menunggu penulisan selesai, lalu memeriksa waktu, jenis, folder/sumber, dan identitas item.
-3. Foto baru masuk basis data antrean lokal. Jika izin hanya memberi akses foto terpilih, aplikasi menjelaskan bahwa deteksi otomatis memerlukan akses yang sesuai.
-4. Pemroses menormalkan orientasi, membuat salinan ber-frame serta thumbnail, dan menyimpan hasil sementara secara atomik.
-5. Berdasarkan mode acara, hasil ditahan untuk tinjau atau masuk antrean unggah. Backend menerbitkan foto hanya setelah upload dan pencatatan berhasil.
-6. Web memuat foto terbaru; tamu melihat thumbnail dan mengunduh versi hasil saat dipilih.
-7. Jika gagal, item tetap pada antrean dengan alasan dan percobaan berikutnya; tidak dianggap berhasil sebelum server mengonfirmasi.
+Mulai sesi mencatat baseline ID MediaStore, waktu mulai dan salinan konfigurasi frame/mode. ContentObserver serta pemeriksaan berkala memicu pipeline serial. Filter folder, ID dan waktu menolak foto lama, screenshot serta hasil ekspor sendiri. Salinan hasil mendapat frame/pita dan disimpan di penyimpanan privat; foto asli tetap utuh.
 
-## Android: batas dan pendekatan
+## Status foto
 
-- Gunakan MediaStore untuk menemukan foto kamera yang baru. Pemicu perubahan koleksi dapat memulai pekerjaan yang dijadwalkan; ketika sesi membutuhkan respons lebih cepat, pertimbangkan pemantauan aktif dengan notifikasi yang jelas.
-- Pekerjaan di latar belakang tunduk pada batas Android dan pengaturan baterai pabrikan. Karena itu latensi tidak dijanjikan instan; uji langsung pada Xiaomi 13T dengan kamera bawaan, layar terkunci, dan koneksi berubah.
-- Pengamatan koleksi media dapat mengirim lebih dari satu sinyal atau sinyal sebelum berkas selesai. Gunakan jeda singkat, pemeriksaan kesiapan, rekonsiliasi berkala selama sesi, dan kunci deduplikasi.
-- Minta izin foto hanya sesuai kebutuhan inti; pada Android baru pengguna bisa memberi akses parsial, yang tidak cukup untuk menangkap semua foto baru secara otomatis.
-- Simpan rahasia server di backend, bukan di APK. Operator terautentikasi; tamu hanya mendapat akses baca sesuai pengaturan acara.
-- Simpan foto asal dan hasil dalam lokasi berbeda agar output frame tidak tertangkap kembali sebagai masukan.
-- Jangan menaruh kredensial penyimpanan dengan hak tulis umum pada halaman web atau QR.
+```mermaid
+stateDiagram-v2
+    [*] --> NEW
+    NEW --> PROCESSING
+    PROCESSING --> REVIEW: mode tinjauan
+    PROCESSING --> READY: langsung Siap Kirim
+    PROCESSING --> ERROR: gagal diproses
+    REVIEW --> READY: disetujui
+    REVIEW --> REJECTED: dilewati
+    READY --> REJECTED: dilewati
+    REJECTED --> REVIEW: dikembalikan
+    REVIEW --> NEW: proses ulang
+    READY --> NEW: proses ulang
+    ERROR --> NEW: proses ulang
+    READY --> SHARED: salinan kiriman disiapkan
+    SHARED --> READY: operator membatalkan
+    SHARED --> SENT: operator mengonfirmasi album
+```
 
-## Model data konseptual
+SENT berarti ditandai selesai oleh operator. Ini tidak menyatakan verifikasi server/Google Photos. Status DONE lama disimpan sebagai riwayat server 0.1.
 
-| Entitas | Kolom penting |
-| --- | --- |
-| event | id, judul, waktu, slug/URL, status, aturan akses, frame aktif |
-| frame | id, event_id, orientasi, versi, file PNG, parameter komposisi |
-| photo | id, event_id, capture_time, source_key, process_version, status, storage_key, thumb_key, published_at |
-| upload_queue (lokal) | source_key, event_id, status, attempts, next_retry, error, processed_path |
-| operator | id, identitas login, hak akses ke acara |
+## Penyerahan hasil
 
-Kunci unik pada pasangan acara dan identitas foto mencegah upload ulang membuat item ganda. URL album dibuat dari ID/slug yang stabil, tidak berubah setiap penambahan foto.
+Satu kelompok maksimal 30 foto READY dari satu acara. Salinan JPEG tetap disimpan di direktori privat deliveries sebelum transaksi database memindahkan foto ke SHARED. ACTION_SEND atau ACTION_SEND_MULTIPLE menyertakan seluruh URI pada EXTRA_STREAM dan ClipData serta izin baca sementara. Hanya satu kelompok PENDING pada satu waktu; saat aplikasi dibuka ulang, operator dapat melanjutkan, memeriksa album, atau membatalkan.
 
-## Pilihan penyimpanan
+Penerima tidak dijanjikan dapat memilih album. Operator menyelesaikan unggah dan penambahan album di Google Photos. Cadangan MediaStore menyalin hasil ke Pictures/Alpi/kode-acara tanpa mengubah foto asli; ekspor ulang memperbarui salinan galeri milik Alpi bila masih ada. Ekspor melalui Alpi juga menyiapkan kelompok kiriman PENDING. Ekspor tidak menandai selesai; konfirmasi operator tetap diperlukan setelah hasil terlihat di album.
 
-Penyedia belum dipilih. Penilaian nanti harus memakai simulasi: jumlah foto × ukuran hasil + jumlah tamu × jumlah unduhan. Layanan gratis umumnya membatasi kapasitas simpan dan bandwidth; album yang ramai dapat melampaui batas. Pertimbangkan masa tayang dan ekspor arsip sejak awal.
+## Migrasi
 
-## Privasi
-
-Wajah tamu dapat terlihat dalam album. Tetapkan tanda pemberitahuan di lokasi acara, kebijakan akses (tautan publik atau PIN), cara meminta foto disembunyikan, dan tanggal penghapusan album sebelum produksi.
-
+SQLite versi 2 menambah google_album_url, gallery_uri dan delivery_batches. URL server lama tetap di kolom album_url lama, tidak dijadikan QR Google Photos. Foto UPLOADING lama dikembalikan menjadi READY. Acara, frame, hasil dan DONE lama tidak dihapus. Migrasi berlaku untuk instalasi dengan tanda tangan APK yang kompatibel.

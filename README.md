@@ -1,40 +1,37 @@
-# Album Photo Live (Alpi)
+# Alpi — Album Photo Live
 
-Alpi adalah sistem foto acara: fotografer tetap memakai **kamera bawaan HP**, aplikasi Android mendeteksi hasil jepretan saat sesi aktif, memasang frame kegiatan pada salinan foto, lalu mengunggahnya ke album online. Tamu memindai QR acara untuk membuka album web dan mengunduh foto tanpa memasang aplikasi.
+**Versi aktif: 0.2.0-beta · Android 10+ · tanpa server atau Google Cloud Console.**
 
-**Status:** implementasi **0.1.0-beta** tersedia: APK Android, server album, galeri web dan peluncur uji Windows. Belum dideploy ke internet; pemantauan kamera perlu pengujian Xiaomi 13T secara langsung.
+Kamera bawaan HP tetap dipakai. Selama sesi aktif, Alpi mendeteksi foto baru dari folder kamera, memberi frame PNG/pita kegiatan pada salinan, lalu menyiapkan hasil untuk dikirim berkelompok ke Google Photos. Operator menyelesaikan unggah dan menambahkan foto ke album di Google Photos.
 
-Mulai dari [panduan uji beta](docs/PANDUAN_UJI_BETA.md). Unduh APK dari artifact [GitHub Actions](../../actions) setelah build berhasil, atau gunakan APK beta yang disertakan pada percakapan pembangunan.
+- Tinjau, setujui atau lewati hasil. Mode langsung Siap Kirim tersedia per acara.
+- Pilih hingga 30 foto dari satu acara untuk dibagikan sekaligus.
+- Tombol Google Photos dengan menu berbagi Android sebagai cadangan.
+- Ekspor hasil ke galeri `Pictures/Alpi/<kode acara>/` bila kiriman langsung tidak didukung oleh Google Photos di HP.
+- Tautan berbagi album per acara, tombol buka album, QR PNG lokal dan berbagi tautan.
+- Status kiriman menunggu konfirmasi; hanya operator yang dapat menandai selesai setelah memeriksa album.
+- Proses frame, antrean dan QR berjalan lokal. APK tidak memiliki izin internet.
 
-## Keputusan yang sudah disepakati
+**Tautan album hanya untuk membuka album dan QR, bukan alamat unggah.** Membuka Google Photos tidak membuktikan bahwa foto sudah terunggah atau masuk album. Tampilan penerimaan foto bergantung pada versi Google Photos. Cadangan folder juga tidak otomatis memasukkan hasil ke album tertentu.
 
-- Nama **Album Photo Live (Alpi)** ditentukan oleh pemilik proyek. Penamaan produk berikutnya merupakan kewenangan pemilik.
-- Fotografer menggunakan kamera bawaan HP; Alpi berjalan sebagai pendamping Android.
-- Hasil jepretan baru diproses pada sesi acara aktif; foto asli tidak diubah.
-- Frame kegiatan dipasang otomatis pada salinan hasil foto sebelum upload.
-- Foto yang berhasil diunggah tampil di album web melalui tautan/QR acara yang tetap.
-- Aplikasi Android untuk fotografer, web untuk tamu, penyimpanan daring untuk foto.
-- Target awal pengujian: Xiaomi 13T (Android 16). Dukungan perangkat lain diverifikasi kemudian.
+## Unduh dan mulai
 
-## Fitur beta
+- [APK 0.2.0-beta](https://github.com/iwaka91/Alpi/releases/download/v0.2.0-beta/Alpi-v0.2.0-beta.apk)
+- [Panduan pemasangan dan alur Google Photos](docs/PANDUAN_UJI_BETA.md)
+- [Perubahan 0.2.0](docs/RELEASE_NOTES_v0.2.0-beta.md)
+- [Status implementasi dan batas pengujian](docs/STATUS_IMPLEMENTASI.md)
+- [Build, penyimpanan dan integrasi Android](docs/API_DAN_BUILD.md)
+- [Spesifikasi produk](docs/SPESIFIKASI_PRODUK.md), [arsitektur](docs/ARSITEKTUR_ALUR.md), [rencana uji perangkat](docs/RENCANA_UJI.md)
 
-- Kamera bawaan tetap digunakan; sesi aktif memantau foto baru melalui MediaStore.
-- Frame PNG dua orientasi dan teks pita pada salinan JPEG, sisi panjang maksimal 2.560 px.
-- Tinjau dahulu atau terbit otomatis; antrean SQLite, retry, dan kunci upload idempoten.
-- Album web mobile, QR tetap, PIN opsional, unduh foto dan sembunyikan foto terbit.
-- Server mandiri dapat diuji lewat Wi-Fi lokal; hosting publik dapat dipasang kemudian.
+## Pengembangan
 
-## Dokumen
+```sh
+cd android
+./gradlew assembleDebug lintDebug testDebugUnitTest
+```
 
-- [Panduan uji beta](docs/PANDUAN_UJI_BETA.md)
-- [API dan build](docs/API_DAN_BUILD.md)
-- [Status implementasi dan verifikasi](docs/STATUS_IMPLEMENTASI.md)
+JDK 17 dan Android SDK 35 diperlukan. QR memakai ZXing Core 3.5.3 (Apache-2.0). Robolectric dipakai untuk pengujian Android/JVM. Workflow GitHub menjalankan build, lint dan tes sebelum membuat prerelease APK beta.
 
-- [Spesifikasi produk dan menu](docs/SPESIFIKASI_PRODUK.md)
-- [Arsitektur dan alur foto](docs/ARSITEKTUR_ALUR.md)
-- [Rencana pembangunan dan uji](docs/RENCANA_UJI.md)
+Folder `server/`, `compose.yaml` dan peluncur Windows merupakan implementasi **versi 0.1** yang dipertahankan sebagai riwayat teknis. APK 0.2 tidak memakainya dan tidak menyediakan pengaturan server, token operator atau PIN album sendiri.
 
-## Prinsip pengerjaan
-
-Mulai dari pembuktian deteksi foto kamera bawaan dan antrean yang tahan gangguan, kemudian pemrosesan frame, backend album, serta pengalaman QR tamu. Pilihan penyedia penyimpanan, domain, dan kebijakan akses album belum dikunci. Jangan menganggap target latensi sebagai jaminan sebelum pengujian perangkat dan jaringan.
-
+Ini APK beta bertanda tangan debug. Uji kamera, pengelolaan baterai HyperOS dan alur penerimaan Google Photos pada perangkat nyata tetap diperlukan sebelum dipakai pada acara penting.

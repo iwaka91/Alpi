@@ -1,39 +1,28 @@
-# Status implementasi 0.1.0-beta
-
-27 Oktober 2026 · APK pengujian, belum rilis produksi.
+# Status implementasi Alpi 0.2.0-beta
 
 ## Tersedia
 
-- APK Android native (Java), Android 10+, target SDK 35.
-- Acara lokal, frame PNG potret/landscape, teks pita dan mode tinjau/otomatis.
-- Sesi kamera bawaan menggunakan MediaStore dan notifikasi; filter folder DCIM/Camera, waktu sesi dan baseline ID.
-- JobScheduler untuk pekerjaan lanjutan dan pemantauan perubahan; antrean SQLite dan pemulihan status proses/unggah yang terputus.
-- EXIF diproses oleh ImageDecoder; salinan JPEG dibuat tanpa mengubah foto asli; hasil bisa dipratinjau dan dibagikan.
-- Token operator dienkripsi Android Keystore; server, folder kamera dan preferensi Wi-Fi dapat diatur.
-- Server mandiri FastAPI/SQLite, upload idempoten, thumbnail, PIN album, QR stabil dan moderasi visibilitas.
-- Web responsif: daftar foto, pembaruan 12 detik, tampilan besar, navigasi geser, pemilihan, unduh dan bagikan tautan.
-- Peluncur Windows, opsi Docker dengan named volume, panduan LAN dan arahan pemasangan HTTPS pada host publik.
-- GitHub Actions untuk build APK, lint Android, unit test dan uji API.
+- APK operator native: kamera bawaan, pemantauan sesi MediaStore, frame PNG/pita pada salinan, tinjau/setujui/lewati, proses ulang.
+- Acara dengan tautan berbagi Google Photos, buka album, berbagi tautan dan QR lokal.
+- Siap Kirim per acara, maksimal 30 foto, satu/banyak JPEG lewat Android sharing, penanganan penerima tidak tersedia.
+- Salinan kiriman tetap, kelompok PENDING bertahan setelah pembukaan ulang, batalkan/kembalikan, konfirmasi selesai oleh operator.
+- Ekspor MediaStore Pictures/Alpi dengan penggunaan ulang URI ekspor bila tersedia.
+- Migrasi database 0.1 tanpa menghapus riwayat/frame/hasil atau menganggap URL server lama sebagai album Google Photos.
+- Pengaturan server/token/PIN Alpi dan izin jaringan dihapus dari APK aktif.
+- CI build/lint/tes serta prerelease unduhan APK.
 
-## Verifikasi
+## Verifikasi rilis
 
-| Pemeriksaan | Cakupan |
-| --- | --- |
-| assembleDebug | APK ditandatangani debug dan dapat dihasilkan dari sumber. |
-| lintDebug | Pemeriksaan statis Android; nol isu pada build yang lulus. |
-| 8 unit test Android/JVM | Batas sesi, foto lama, screenshot/output sendiri, waktu simpan detik, foto terlambat tersimpan, path kamera. |
-| 10 test API | Token, kestabilan URL, idempotensi, thumbnail/unduh, PIN dan perubahan PIN, moderasi, isolasi acara, berkas rusak, pembatasan percobaan PIN dan QR. |
-| Browser Chromium | Viewport mobile 390×844 dan desktop 1440×1000; galeri, tanpa overflow mobile, buka/geser foto, pilih dan unduh, tanpa error JavaScript pada skenario uji. |
+Pemeriksaan rilis mencakup assembleDebug, lintDebug, delapan unit test kebijakan foto kamera, dua test validasi tautan dan sembilan test integrasi Android/JVM (Robolectric) untuk penyerahan kiriman, snapshot, pembatalan, persistensi, isolasi acara/transaksi, batas kelompok, hasil hilang, QR, migrasi dan alur pilihan antarmuka setelah rotasi layar. Status kelulusan tersedia pada [GitHub Actions](https://github.com/iwaka91/Alpi/actions). Backend 0.1 yang tidak dipakai APK masih memiliki sepuluh test API di CI.
 
-Uji otomatis tidak membuktikan pemantauan kamera pada perangkat nyata. Xiaomi 13T/HyperOS, burst/HDR, penghemat baterai, notifikasi dan latensi jaringan perlu uji langsung. Tidak ada perangkat Android tersambung selama pembangunan ini.
+Pengujian integrasi memakai lingkungan Android simulasi pada JVM. Ini belum membuktikan penerimaan Google Photos nyata, tampilan HP, izin MediaStore OEM, perilaku kamera, HyperOS atau pembatasan baterai pada Xiaomi 13T. Uji sesuai RENCANA_UJI.md diperlukan.
 
-## Batas implementasi awal
+## Batas yang perlu dipahami
 
-- Server dan domain publik belum diaktifkan. Kode server siap dijalankan lokal atau dipasang di host pilihan pemilik.
-- Penyimpanan menggunakan disk server mandiri; integrasi vendor foto/cloud tertentu belum dibuat.
-- Frame diimpor sebagai komposisi PNG jadi dan ditempatkan pada kanvas foto; editor posisi logo, crop dan desain frame interaktif belum tersedia.
-- Tidak ada deteksi wajah, retouch AI, video, monetisasi atau sinkronisasi banyak fotografer pada beta.
-- Retensi/penghapusan album otomatis dan ekspor database belum tersedia; backup direktori data atau volume server dilakukan operator.
-- Mode lihat/tinjau dan antrean tersedia; jeda unggah global terpisah belum tersedia.
-- Batas jendela rekonsiliasi foto adalah 24 jam setelah sesi berakhir, bukan batas umur antrean.
-- Signing produksi dan pengujian perangkat merupakan langkah berikutnya sebelum penggunaan acara penting.
+- Alpi tidak bisa unggah ke album Google Photos hanya melalui tautan. Operator menyelesaikan unggah/penambahan album di Google Photos.
+- Tidak ada pemeriksaan keberhasilan cloud. SENT merupakan catatan manual operator.
+- Tampilan dan kemampuan penerima Google Photos dapat berubah. Ekspor ke galeri disediakan sebagai cadangan.
+- Tamu mengikuti pengaturan berbagi/login/unduh Google Photos. Alpi tidak membuat galeri web sendiri pada alur ini.
+- Tidak ada AI pemilih foto, deteksi wajah, retouch AI, video, editor frame interaktif atau sinkronisasi banyak fotografer.
+- Foto hasil JPEG maksimal 2.560 px pada sisi panjang, kualitas 92; asli tidak diubah.
+- Beta memakai tanda tangan debug. Produksi memerlukan signing tetap milik pemilik proyek.

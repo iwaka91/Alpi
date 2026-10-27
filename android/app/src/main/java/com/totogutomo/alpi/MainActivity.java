@@ -13,7 +13,6 @@ import android.text.InputType;
 import android.view.*;
 import android.widget.*;
 import java.io.*;
-import java.net.URL;
 import java.util.*;
 import org.json.*;
 
@@ -29,12 +28,13 @@ public class MainActivity extends Activity {
   private String page = "Beranda", detail = "", importField = "", importEvent = "";
   private final Handler handler = new Handler(Looper.getMainLooper());
   private boolean alive;
-  private int photoLimit = 80;
+  private int photoLimit = 30;
+  private final LinkedHashSet<String> selectedPhotos = new LinkedHashSet<>();
   private final BroadcastReceiver updates =
       new BroadcastReceiver() {
         @Override
         public void onReceive(Context c, Intent i) {
-          if (page.equals("Beranda") || page.equals("Foto") || page.equals("Antrean")) refresh();
+          if (page.equals("Beranda") || page.equals("Foto") || page.equals("Siap Kirim")) refresh();
         }
       };
 
@@ -139,7 +139,10 @@ public class MainActivity extends Activity {
       detail = state.getString("detail", "");
       importField = state.getString("importField", "");
       importEvent = state.getString("importEvent", "");
+      ArrayList<String> selection = state.getStringArrayList("selection");
+      if (selection != null) selectedPhotos.addAll(selection);
     }
+    if (page.equals("Antrean")) page = "Siap Kirim";
     root = column();
     root.setBackgroundColor(BG);
     setContentView(root);
@@ -165,7 +168,7 @@ public class MainActivity extends Activity {
     header.setPadding(dp(22), dp(10), dp(22), dp(6));
     TextView brand = text("alpi", 33, GREEN, true);
     header.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
-    TextView mark = text("ALBUM PHOTO LIVE\n0.1.0 BETA", 10, MUTED, true);
+    TextView mark = text("ALBUM PHOTO LIVE\n0.2.0 BETA", 10, MUTED, true);
     mark.setGravity(Gravity.END);
     header.addView(mark);
     root.addView(header);
@@ -204,6 +207,7 @@ public class MainActivity extends Activity {
     b.putString("detail", detail);
     b.putString("importField", importField);
     b.putString("importEvent", importEvent);
+    b.putStringArrayList("selection", new ArrayList<>(selectedPhotos));
   }
 
   @Override
@@ -249,7 +253,7 @@ public class MainActivity extends Activity {
   private void render() {
     body.removeAllViews();
     nav.removeAllViews();
-    for (String name : new String[] {"Beranda", "Acara", "Foto", "Antrean", "Lainnya"}) {
+    for (String name : new String[] {"Beranda", "Acara", "Foto", "Siap Kirim", "Lainnya"}) {
       TextView t = text(name, 11, page.equals(name) ? GREEN : MUTED, page.equals(name));
       t.setGravity(Gravity.CENTER);
       t.setMinHeight(dp(50));
@@ -268,7 +272,7 @@ public class MainActivity extends Activity {
       case "Foto":
         photos(false);
         break;
-      case "Antrean":
+      case "Siap Kirim":
         photos(true);
         break;
       default:
@@ -277,8 +281,8 @@ public class MainActivity extends Activity {
   }
 
   private void home() {
-    title("Siap mengabadikan\nmomen hari ini?");
-    hint("Potret dengan kamera bawaan. Alpi mengurus frame dan album Anda.");
+    title("Kamera Anda.\nMomen untuk semua.");
+    hint("Potret dengan kamera bawaan. Alpi menyiapkan frame dan kiriman ke Google Photos.");
     space();
     JSONObject e = current(), session = store.active();
     LinearLayout c = card();
@@ -295,10 +299,10 @@ public class MainActivity extends Activity {
         text(
             session == null
                 ? "Pilih acara, pasang frame, lalu mulai sesi."
-                : "Foto baru dari folder kamera akan masuk antrean. "
+                : "Foto kamera yang baru akan diproses di HP."
                     + (LiveService.running
                         ? ""
-                        : "Buka Alpi dan tekan Lanjutkan pemantauan untuk respons lebih cepat."),
+                        : " Tekan Lanjutkan pemantauan untuk respons lebih cepat."),
             14,
             MUTED,
             false));
@@ -312,26 +316,28 @@ public class MainActivity extends Activity {
         c.addView(button("Lanjutkan pemantauan", false, this::resumeService));
       c.addView(button("Jeda / akhiri sesi", false, this::stop));
     } else c.addView(button("Acara & frame", false, () -> go("Acara")));
-    int all = 0, done = 0, review = 0, waiting = 0;
+    int ready = 0, review = 0, finished = 0;
     for (JSONObject q : store.queue()) {
-      all++;
-      String state = q.optString("state");
-      if (state.equals("DONE")) done++;
-      else if (state.equals("REVIEW")) review++;
-      else waiting++;
+      if (e == null || !e.optString("id").equals(q.optString("event_id"))) continue;
+      if (q.optString("state").equals("READY")) ready++;
+      if (q.optString("state").equals("REVIEW")) review++;
+      if (q.optString("state").equals("SENT")) finished++;
     }
     LinearLayout stats = card();
-    stats.addView(text(done + " terunggah  ·  " + review + " perlu ditinjau", 17, INK, true));
-    stats.addView(
-        text(waiting + " dalam antrean  /  " + all + " foto terdeteksi", 13, MUTED, false));
-    stats.addView(button("Lihat antrean", false, () -> go("Antrean")));
+    stats.addView(text(ready + " siap kirim  ·  " + review + " perlu ditinjau", 17, INK, true));
+    stats.addView(text(finished + " ditandai selesai pada acara terpilih", 13, MUTED, false));
+    stats.addView(button("Pilih & kirim hasil", true, () -> go("Siap Kirim")));
+    pendingCard();
+    if (e != null && !e.optString("google_album_url").isEmpty()) {
+      action("Buka album Google Photos ↗", false, () -> open(e.optString("google_album_url")));
+      action("QR album untuk tamu", false, () -> qr(e.optString("id")));
+    }
     if (!Pipeline.allowed(this)) action("Berikan izin semua foto", false, this::permissions);
     String error = Prefs.get(this, "service_error", "");
     if (!error.isEmpty()) hint(error);
     String scan = Prefs.get(this, "scan_error", "");
     if (!scan.isEmpty()) hint("Pemantauan: " + scan);
-    if (Prefs.get(this, "server", "").isEmpty())
-      action("Hubungkan server album", false, this::settings);
+    hint("Proses frame dan QR berjalan di HP. Unggah diselesaikan di Google Photos.");
   }
 
   private void events() {
@@ -344,9 +350,9 @@ public class MainActivity extends Activity {
       c.addView(text((chosen ? "● " : "") + e.optString("title"), 20, INK, true));
       c.addView(
           text(
-              e.optString("album_url").isEmpty()
+              e.optString("google_album_url").isEmpty()
                   ? "Album belum dihubungkan"
-                  : e.optString("album_url"),
+                  : e.optString("google_album_url"),
               12,
               MUTED,
               false));
@@ -388,7 +394,7 @@ public class MainActivity extends Activity {
           Prefs.set(this, "selected", e.optString("id"));
           render();
         });
-    action("Ubah nama, informasi & PIN", false, () -> editEvent(e));
+    action("Ubah acara & tautan album", false, () -> editEvent(e));
     LinearLayout frames = card();
     frames.addView(text("Frame & postproses", 20, INK, true));
     frames.addView(
@@ -427,7 +433,7 @@ public class MainActivity extends Activity {
             false,
             () -> textBand(e)));
     Switch auto = new Switch(this);
-    auto.setText(R.string.publish_automatically);
+    auto.setText("Langsung masuk Siap Kirim setelah framing");
     auto.setTextSize(13);
     auto.setPadding(0, dp(10), 0, dp(14));
     auto.setChecked(e.optInt("automatic") == 1);
@@ -441,20 +447,27 @@ public class MainActivity extends Activity {
             12,
             MUTED,
             false));
+    hint(
+        "Simpan tautan berbagi album Google Photos milik Anda. Tautan dipakai untuk membuka album"
+            + " dan QR tamu.");
     action(
-        "Hubungkan / perbarui album online",
+        "Pilih hasil untuk dikirim",
         true,
-        () ->
-            background(
-                "Menghubungkan album…",
-                () -> {
-                  new Api(this).sync(store.event(e.optString("id")));
-                },
-                this::render));
-    String url = e.optString("album_url");
+        () -> {
+          if (!e.optString("id").equals(selected())) {
+            if (store.active() != null) {
+              toast("Akhiri sesi aktif sebelum mengganti acara.");
+              return;
+            }
+            Prefs.set(this, "selected", e.optString("id"));
+            selectedPhotos.clear();
+          }
+          go("Siap Kirim");
+        });
+    String url = e.optString("google_album_url");
     if (!url.isEmpty()) {
       action("Tampilkan & bagikan QR", false, () -> qr(e.optString("id")));
-      action("Buka album tamu ↗", false, () -> open(url));
+      action("Buka album Google Photos ↗", false, () -> open(url));
       action("Bagikan tautan album", false, () -> shareText(url));
     }
   }
@@ -487,12 +500,19 @@ public class MainActivity extends Activity {
             "Informasi acara",
             e == null ? "" : e.optString("description"),
             InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-    EditText pin =
+    EditText album =
         input(
             form,
-            "PIN tamu (kosong = akses melalui tautan)",
-            e == null ? "" : e.optString("pin"),
-            InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+            "Tautan berbagi album Google Photos (boleh diisi nanti)",
+            e == null ? "" : e.optString("google_album_url"),
+            InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+    form.addView(
+        text(
+            "Buat album di Google Photos, aktifkan berbagi tautan, lalu tempel tautannya di sini."
+                + " Akses tamu mengikuti pengaturan Google Photos.",
+            12,
+            MUTED,
+            false));
     ScrollView sc = new ScrollView(this);
     sc.addView(form);
     AlertDialog dialog =
@@ -513,16 +533,21 @@ public class MainActivity extends Activity {
                         name.setError("Isi nama acara, maksimal 120 karakter");
                         return;
                       }
-                      if (description.length() > 1000 || pin.length() > 32) {
-                        toast("Informasi maksimal 1.000 karakter; PIN maksimal 32.");
+                      if (description.length() > 1000) {
+                        toast("Informasi maksimal 1.000 karakter.");
                         return;
                       }
                       String id =
                           e == null
                               ? UUID.randomUUID().toString().replace("-", "")
                               : e.optString("id");
-                      store.eventSave(
-                          id, t, description.getText().toString(), pin.getText().toString());
+                      try {
+                        store.eventSave(
+                            id, t, description.getText().toString(), album.getText().toString());
+                      } catch (IllegalArgumentException ex) {
+                        album.setError(ex.getMessage());
+                        return;
+                      }
                       if (selected().isEmpty()) Prefs.set(this, "selected", id);
                       page = "Acara";
                       detail = id;
@@ -608,123 +633,387 @@ public class MainActivity extends Activity {
     }
   }
 
+  private void eventFilter() {
+    JSONObject e = current();
+    action(
+        e == null ? "Pilih / buat acara" : "Acara: " + e.optString("title") + " ▾",
+        false,
+        () -> {
+          List<JSONObject> events = store.events();
+          if (events.isEmpty()) {
+            go("Acara");
+            return;
+          }
+          String[] names = new String[events.size()];
+          for (int n = 0; n < events.size(); n++) names[n] = events.get(n).optString("title");
+          new AlertDialog.Builder(this)
+              .setTitle("Pilih acara")
+              .setItems(
+                  names,
+                  (d, which) -> {
+                    String id = events.get(which).optString("id");
+                    if (store.active() != null && !id.equals(selected())) {
+                      toast("Akhiri sesi aktif sebelum mengganti acara.");
+                      return;
+                    }
+                    Prefs.set(this, "selected", id);
+                    selectedPhotos.clear();
+                    photoLimit = 30;
+                    refresh();
+                  })
+              .setNegativeButton("Batal", null)
+              .show();
+        });
+  }
+
+  private List<JSONObject> readyPhotos() {
+    return store.rows(
+        "SELECT * FROM queue WHERE event_id=? AND state='READY' ORDER BY created", selected());
+  }
+
   private void photos(boolean queueOnly) {
-    title(queueOnly ? "Antrean unggah" : "Foto acara");
+    title(queueOnly ? "Siap Kirim" : "Foto acara");
     hint(
         queueOnly
-            ? "Antrean disimpan di HP, termasuk saat koneksi terputus."
-            : "Tinjau hasil frame sebelum mengirimkannya ke tamu.");
-    action(
-        "Periksa & lanjutkan antrean",
-        true,
-        () -> {
-          Pipeline.kick(this);
-          SyncJob.retry(this);
-          toast("Antrean diperiksa.");
-        });
-    List<JSONObject> items = store.queue();
+            ? "Kirim hingga 30 hasil foto sekaligus. Selesaikan unggah dan penambahan album di"
+                + " Google Photos."
+            : "Tinjau hasil, setujui, atau lewati foto sebelum dibagikan.");
+    eventFilter();
+    if (queueOnly) pendingCard();
+    List<JSONObject> ready = readyPhotos();
+    HashSet<String> valid = new HashSet<>();
+    for (JSONObject q : ready) valid.add(q.optString("id"));
+    selectedPhotos.retainAll(valid);
+    if (queueOnly && !ready.isEmpty()) {
+      TextView count =
+          text(selectedPhotos.size() + " dipilih · " + ready.size() + " siap kirim", 16, INK, true);
+      body.addView(count);
+      action(
+          "Pilih 30 pertama / semua jika kurang",
+          false,
+          () -> {
+            selectedPhotos.clear();
+            for (JSONObject q : ready) {
+              if (selectedPhotos.size() == Delivery.MAX_BATCH) break;
+              selectedPhotos.add(q.optString("id"));
+            }
+            refresh();
+          });
+      action(
+          "Batal pilih semua",
+          false,
+          () -> {
+            selectedPhotos.clear();
+            refresh();
+          });
+      action("Kirim pilihan ke Google Photos", true, this::sendSelected);
+      action(
+          "Simpan pilihan ke galeri HP",
+          false,
+          () -> exportGallery(new ArrayList<>(selectedPhotos)));
+      JSONObject e = current();
+      if (e != null && !e.optString("google_album_url").isEmpty())
+        action("Buka album tujuan ↗", false, () -> open(e.optString("google_album_url")));
+      hint(
+          "Simpan ke galeri menjadi cadangan jika Google Photos tidak menerima kiriman langsung."
+              + " Folder hasil: Pictures/Alpi.");
+      renderPhotos(true, count);
+    } else renderPhotos(queueOnly, null);
+    if (!queueOnly) action("Buka Siap Kirim", true, () -> go("Siap Kirim"));
+  }
+
+  private void renderPhotos(boolean readyOnly, TextView count) {
     int shown = 0;
-    for (JSONObject q : items) {
-      if (queueOnly && q.optString("state").equals("DONE")) continue;
+    for (JSONObject q : store.queue()) {
+      if (!selected().equals(q.optString("event_id"))) continue;
+      String state = q.optString("state"), id = q.optString("id"), output = q.optString("output");
+      if (readyOnly && !state.equals("READY")) continue;
       if (++shown > photoLimit) {
         action(
-            "Muat 80 foto berikutnya",
+            "Muat 30 foto berikutnya",
             false,
             () -> {
-              photoLimit += 80;
+              photoLimit += 30;
               refresh();
             });
         break;
       }
-      String state = q.optString("state");
       LinearLayout c = card();
-      c.addView(text(q.optString("title"), 16, INK, true));
       c.addView(
-          text(
-              label(state) + (q.optInt("visible") == 0 ? " · disembunyikan" : ""),
-              13,
-              state.equals("ERROR") ? Color.rgb(165, 65, 45) : GREEN,
-              true));
+          text(label(state), 15, state.equals("ERROR") ? Color.rgb(165, 65, 45) : GREEN, true));
       c.addView(
           text(
               android.text.format.DateFormat.format(
                       "dd MMM · HH:mm:ss", Pipeline.number(q, "captured"))
                   + " · "
-                  + q.optString("id").substring(0, 8),
+                  + id.substring(0, 8),
               12,
               MUTED,
               false));
+      if (readyOnly) {
+        CheckBox choice = new CheckBox(this);
+        choice.setText("Pilih foto ini");
+        choice.setChecked(selectedPhotos.contains(id));
+        choice.setMinHeight(dp(48));
+        choice.setOnCheckedChangeListener(
+            (b, checked) -> {
+              if (checked && selectedPhotos.size() >= Delivery.MAX_BATCH) {
+                choice.setChecked(false);
+                toast("Maksimal 30 foto per kiriman. Kirim pilihan saat ini dahulu.");
+                return;
+              }
+              if (checked) selectedPhotos.add(id);
+              else selectedPhotos.remove(id);
+              if (count != null)
+                count.setText(
+                    selectedPhotos.size() + " dipilih · " + readyPhotos().size() + " siap kirim");
+            });
+        c.addView(choice);
+      }
+      if (!output.isEmpty() && new File(output).isFile()) {
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(output, bounds);
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inSampleSize = 1;
+        while (Math.max(bounds.outWidth, bounds.outHeight) / options.inSampleSize > 360)
+          options.inSampleSize *= 2;
+        Bitmap thumb = BitmapFactory.decodeFile(output, options);
+        ImageView image = new ImageView(this);
+        image.setImageBitmap(thumb);
+        image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        image.setContentDescription("Pratinjau hasil frame. Ketuk untuk memperbesar.");
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(170));
+        lp.bottomMargin = dp(12);
+        c.addView(image, lp);
+        image.setOnClickListener(
+            v -> previewImage(Uri.fromFile(new File(output)), false, "Hasil foto"));
+        c.addView(
+            button(
+                "Lihat hasil foto",
+                false,
+                () -> previewImage(Uri.fromFile(new File(output)), false, "Hasil foto")));
+      }
       if (!q.optString("error").isEmpty()) c.addView(text(q.optString("error"), 12, MUTED, false));
       c.addView(
           button(
               "Lihat foto asli",
               false,
               () -> previewImage(Uri.parse(q.optString("uri")), false, "Foto asli")));
-      String output = q.optString("output");
-      if (!output.isEmpty())
-        c.addView(
-            button("Lihat hasil foto", false, () -> preview(Uri.fromFile(new File(output)), true)));
       if (state.equals("REVIEW"))
         c.addView(
             button(
-                "Setujui & unggah",
+                "Setujui → Siap Kirim",
                 true,
                 () -> {
-                  store.state(q.optString("id"), "READY", null, "", 0);
-                  Pipeline.kick(this);
-                  SyncJob.retry(this);
+                  store.state(id, "READY", null, "", 0);
                   refresh();
                 }));
-      if (state.equals("ERROR"))
+      if (state.equals("REVIEW") || state.equals("READY"))
         c.addView(
             button(
-                "Coba lagi",
-                true,
-                () -> {
-                  store
-                      .getWritableDatabase()
-                      .execSQL(
-                          "UPDATE queue SET attempts=0 WHERE id=?",
-                          new Object[] {q.optString("id")});
-                  store.state(q.optString("id"), output.isEmpty() ? "NEW" : "READY", null, "", 0);
-                  Pipeline.kick(this);
-                  SyncJob.retry(this);
-                  refresh();
-                }));
-      if (state.equals("REVIEW") || state.equals("ERROR"))
-        c.addView(
-            button(
-                "Proses ulang dengan frame sekarang",
+                "Lewati foto ini",
                 false,
                 () -> {
-                  JSONObject e = store.event(q.optString("event_id"));
-                  android.content.ContentValues v = new android.content.ContentValues();
-                  v.put("config", e.toString());
-                  v.put("attempts", 0);
-                  store
-                      .getWritableDatabase()
-                      .update("queue", v, "id=?", new String[] {q.optString("id")});
-                  store.state(q.optString("id"), "NEW", "", "", 0);
-                  Pipeline.kick(this);
+                  store.state(id, "REJECTED", null, "", 0);
+                  selectedPhotos.remove(id);
                   refresh();
                 }));
-      if (state.equals("DONE")) {
-        boolean visible = q.optInt("visible") == 1;
+      if (state.equals("REJECTED"))
         c.addView(
             button(
-                visible ? "Sembunyikan dari album" : "Tampilkan kembali",
+                "Kembalikan untuk ditinjau",
+                false,
+                () -> {
+                  store.state(id, "REVIEW", null, "", 0);
+                  refresh();
+                }));
+      if (state.equals("REVIEW")
+          || state.equals("READY")
+          || state.equals("ERROR")
+          || state.equals("REJECTED"))
+        c.addView(button("Proses ulang dengan frame sekarang", false, () -> reprocess(q)));
+      if (state.equals("SENT") || state.equals("DONE"))
+        c.addView(
+            button(
+                "Siapkan lagi untuk dikirim",
                 false,
                 () ->
-                    background(
-                        "Memperbarui album…",
-                        () -> {
-                          new Api(this).visible(q, !visible);
-                          store.visibility(q.optString("id"), !visible);
-                        },
-                        this::refresh)));
+                    new AlertDialog.Builder(this)
+                        .setTitle("Siapkan foto ini lagi?")
+                        .setMessage(
+                            "Pengiriman ulang dapat membuat salinan lain di Google Photos. Periksa"
+                                + " album terlebih dahulu.")
+                        .setPositiveButton(
+                            "Siapkan",
+                            (d, w) -> {
+                              store.state(id, "READY", null, "", 0);
+                              refresh();
+                            })
+                        .setNegativeButton("Batal", null)
+                        .show()));
+    }
+    if (shown == 0)
+      hint(
+          readyOnly
+              ? "Belum ada foto siap kirim. Setujui hasil di menu Foto, atau aktifkan langsung Siap"
+                  + " Kirim sebelum memulai sesi."
+              : "Belum ada foto untuk acara ini. Mulai sesi, lalu potret dengan kamera bawaan.");
+  }
+
+  private void reprocess(JSONObject q) {
+    ContentValues v = new ContentValues();
+    v.put("config", store.event(q.optString("event_id")).toString());
+    v.put("attempts", 0);
+    store.getWritableDatabase().update("queue", v, "id=?", new String[] {q.optString("id")});
+    store.state(q.optString("id"), "NEW", "", "", 0);
+    selectedPhotos.remove(q.optString("id"));
+    Pipeline.kick(this);
+    refresh();
+  }
+
+  private void sendSelected() {
+    if (selectedPhotos.isEmpty()) {
+      toast("Pilih foto yang akan dikirim.");
+      return;
+    }
+    JSONObject e = current();
+    if (e == null || e.optString("google_album_url").isEmpty()) {
+      toast("Simpan tautan berbagi album pada acara terlebih dahulu.");
+      if (e != null) editEvent(e);
+      return;
+    }
+    ArrayList<String> ids = new ArrayList<>(selectedPhotos);
+    JSONObject[] batch = new JSONObject[1];
+    background(
+        "Menyiapkan salinan kiriman…",
+        () -> {
+          batch[0] = Delivery.prepare(this, e.optString("id"), ids);
+        },
+        () -> {
+          selectedPhotos.clear();
+          refresh();
+          launchBatch(batch[0]);
+        });
+  }
+
+  private void launchBatch(JSONObject batch) {
+    try {
+      Intent direct = Delivery.intent(this, batch, true);
+      if (direct.resolveActivity(getPackageManager()) != null) startActivity(direct);
+      else {
+        toast("Pilih Google Photos jika tersedia. Jika tidak, simpan hasil ke galeri HP.");
+        startActivity(
+            Intent.createChooser(Delivery.intent(this, batch, false), "Kirim hasil foto Alpi"));
+      }
+    } catch (Exception e) {
+      toast("Kiriman belum dibuka. " + Pipeline.safe(e));
+    }
+  }
+
+  private void pendingCard() {
+    JSONObject batch = store.pendingBatch();
+    if (batch == null) return;
+    JSONObject event = store.event(batch.optString("event_id"));
+    int count = new JSONArraySafe(batch.optString("photo_ids")).size();
+    LinearLayout c = card();
+    c.addView(text("Menunggu konfirmasi kiriman", 20, INK, true));
+    c.addView(
+        text(
+            count + " foto · " + (event == null ? "Acara" : event.optString("title")),
+            14,
+            GREEN,
+            true));
+    c.addView(
+        text(
+            "Selesaikan unggah di Google Photos, lalu tambahkan foto ke album tujuan. Setelah foto"
+                + " terlihat di album, tandai selesai di Alpi. Membuka Google Photos saja belum"
+                + " berarti berhasil.",
+            13,
+            MUTED,
+            false));
+    if (!batch.optString("album_url").isEmpty())
+      c.addView(button("Buka album & periksa ↗", false, () -> open(batch.optString("album_url"))));
+    c.addView(
+        button(
+            "Sudah masuk album · tandai selesai",
+            true,
+            () ->
+                new AlertDialog.Builder(this)
+                    .setTitle("Foto sudah terlihat di album?")
+                    .setMessage(
+                        "Tandai hanya setelah memeriksa seluruh foto kiriman. Alpi mencatat"
+                            + " konfirmasi Anda dan tidak dapat memeriksa unggahan Google Photos.")
+                    .setPositiveButton("Ya, tandai selesai", (d, w) -> finishBatch(batch, true))
+                    .setNegativeButton("Belum", null)
+                    .show()));
+    c.addView(button("Buka kiriman yang sama lagi", false, () -> launchBatch(batch)));
+    c.addView(
+        button(
+            "Simpan kiriman ke galeri HP",
+            false,
+            () -> exportGallery(new JSONArraySafe(batch.optString("photo_ids")).values)));
+    c.addView(
+        button("Belum jadi / kembalikan ke Siap Kirim", false, () -> finishBatch(batch, false)));
+  }
+
+  private static class JSONArraySafe {
+    final ArrayList<String> values = new ArrayList<>();
+
+    JSONArraySafe(String text) {
+      try {
+        JSONArray a = new JSONArray(text);
+        for (int n = 0; n < a.length(); n++) values.add(a.getString(n));
+      } catch (JSONException ignored) {
       }
     }
-    if (shown == 0) hint("Belum ada foto di sini. Mulai sesi, lalu potret dengan kamera bawaan.");
+
+    int size() {
+      return values.size();
+    }
+  }
+
+  private void finishBatch(JSONObject batch, boolean confirmed) {
+    try {
+      store.finishBatch(batch.optString("id"), confirmed);
+      selectedPhotos.clear();
+      refresh();
+      toast(confirmed ? "Kiriman ditandai selesai oleh Anda." : "Foto kembali ke Siap Kirim.");
+    } catch (Exception e) {
+      toast(Pipeline.safe(e));
+    }
+  }
+
+  private void exportGallery(Collection<String> ids) {
+    if (ids.isEmpty()) {
+      toast("Pilih foto dahulu.");
+      return;
+    }
+    ArrayList<String> copy = new ArrayList<>(ids);
+    background(
+        "Menyimpan salinan hasil ke galeri…",
+        () -> {
+          JSONObject pending = store.pendingBatch();
+          if (pending == null) {
+            JSONObject first = store.photo(copy.get(0));
+            if (first == null) throw new IOException("Foto tidak ditemukan.");
+            Delivery.prepare(this, first.optString("event_id"), copy);
+          } else {
+            Set<String> staged =
+                new HashSet<>(new JSONArraySafe(pending.optString("photo_ids")).values);
+            if (!staged.equals(new HashSet<>(copy)))
+              throw new IOException(
+                  "Selesaikan atau kembalikan kiriman sebelumnya terlebih dahulu.");
+          }
+          Delivery.gallery(this, copy);
+        },
+        () -> {
+          selectedPhotos.clear();
+          toast(
+              "Hasil tersedia di Pictures/Alpi. Buka Google Photos → folder di perangkat, lalu"
+                  + " tambahkan ke album.");
+          refresh();
+        });
   }
 
   static String label(String s) {
@@ -736,11 +1025,15 @@ public class MainActivity extends Activity {
       case "REVIEW":
         return "Perlu tinjauan";
       case "READY":
-        return "Menunggu unggah";
-      case "UPLOADING":
-        return "Mengunggah";
+        return "Siap dikirim";
+      case "SHARED":
+        return "Menunggu konfirmasi kiriman";
+      case "SENT":
+        return "Ditandai selesai oleh operator";
       case "DONE":
-        return "Terunggah";
+        return "Riwayat unggah server versi lama";
+      case "REJECTED":
+        return "Dilewati";
       case "ERROR":
         return "Perlu perhatian";
       default:
@@ -750,7 +1043,7 @@ public class MainActivity extends Activity {
 
   private void more() {
     title("Pengaturan & bantuan");
-    action("Server & koneksi", true, this::settings);
+    action("Folder kamera", true, this::settings);
     action("Izin foto & notifikasi", false, this::permissions);
     action(
         "Pengaturan aplikasi Android",
@@ -764,76 +1057,57 @@ public class MainActivity extends Activity {
     c.addView(text("Cara memakai Alpi", 21, INK, true));
     c.addView(
         text(
-            "1. Hubungkan alamat server dan token operator.\n"
-                + "2. Buat acara, pilih frame dan hubungkan album.\n"
+            "1. Buat acara dan tempel tautan berbagi album Google Photos.\n"
+                + "2. Impor frame PNG atau isi pita kegiatan.\n"
                 + "3. Mulai sesi, lalu buka kamera bawaan.\n"
-                + "4. Tinjau hasil di Foto, atau aktifkan terbit otomatis sebelum mulai sesi.\n"
-                + "5. Bagikan QR acara kepada tamu.",
+                + "4. Tinjau hasil di Foto, lalu pilih foto di Siap Kirim.\n"
+                + "5. Kirim ke Google Photos; selesaikan unggah dan tambahkan ke album di sana.\n"
+                + "6. Cek album, lalu tandai kiriman selesai. QR tamu tetap memakai tautan album.",
             14,
             MUTED,
             false));
     c.addView(
         text(
-            "Saat sesi dijeda/diakhiri, foto baru tidak dipantau; antrean lama tetap diselesaikan."
-                + " Mematikan paksa Alpi menghentikan pekerjaan sampai dibuka lagi. Android dapat"
-                + " membatasi sesi latar belakang; periksa notifikasi dan status di Beranda.",
+            "Jika Google Photos tidak menerima kiriman, gunakan Simpan ke galeri HP lalu pilih"
+                + " hasil dari folder Pictures/Alpi di Google Photos. Cadangan folder tidak"
+                + " otomatis memasukkan foto ke album tertentu.",
+            13,
+            MUTED,
+            false));
+    c.addView(
+        text(
+            "Saat sesi dijeda, foto baru tidak dipantau. Hasil dan pilihan kiriman tetap di HP."
+                + " Mematikan paksa Alpi menghentikan pekerjaan sampai dibuka lagi. Periksa"
+                + " notifikasi saat memakai penghemat baterai.",
             13,
             MUTED,
             false));
     hint(
         "Alpi · Album Photo Live\n"
-            + "Versi 0.1.0-beta · Uji awal pada perangkat diperlukan.\n"
-            + "Foto hasil: JPEG, sisi panjang maksimal 2.560 px, kualitas 92. Foto asli tidak"
-            + " diubah.");
+            + "Versi 0.2.0-beta · Tanpa server dan Google Cloud Console.\n"
+            + "Hasil JPEG, sisi panjang maksimal 2.560 px, kualitas 92. Foto asli tidak diubah.");
   }
 
   private void settings() {
     LinearLayout f = column();
     f.setPadding(dp(20), dp(12), dp(20), dp(12));
-    EditText server =
-        input(
-            f,
-            "Alamat server (contoh https://album.domain.id)",
-            Prefs.get(this, "server", ""),
-            InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
-    String secret = "";
-    try {
-      secret = Prefs.token(this);
-    } catch (Exception ignored) {
-    }
-    EditText token =
-        input(
-            f,
-            "Token operator",
-            secret,
-            InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
     EditText folder =
         input(
             f,
             "Folder kamera di MediaStore",
             Prefs.get(this, "folder", "DCIM/Camera/"),
             InputType.TYPE_CLASS_TEXT);
-    CheckBox wifi = new CheckBox(this);
-    wifi.setText(R.string.wifi_only);
-    wifi.setChecked(Prefs.p(this).getBoolean("wifi", false));
-    f.addView(wifi);
-    CheckBox http = new CheckBox(this);
-    http.setText(R.string.allow_http);
-    http.setChecked(Prefs.p(this).getBoolean("http", false));
-    f.addView(http);
     f.addView(
         text(
-            "Gunakan HTTPS untuk server publik. Perubahan server berlaku untuk semua acara pada HP"
-                + " ini. PIN album akan diperbarui saat Hubungkan album.",
-            12,
+            "Biasanya DCIM/Camera/. Folder hasil Pictures/Alpi tidak ikut dipantau. Ubah saat sesi"
+                + " berhenti.",
+            13,
             MUTED,
             false));
-    ScrollView sc = new ScrollView(this);
-    sc.addView(f);
     AlertDialog d =
         new AlertDialog.Builder(this)
-            .setTitle("Server & koneksi")
-            .setView(sc)
+            .setTitle("Folder kamera")
+            .setView(f)
             .setNegativeButton("Batal", null)
             .setPositiveButton("Simpan", null)
             .create();
@@ -842,39 +1116,19 @@ public class MainActivity extends Activity {
             d.getButton(-1)
                 .setOnClickListener(
                     b -> {
-                      try {
-                        String url = server.getText().toString().trim().replaceAll("/+$", "");
-                        if (!url.isEmpty()) {
-                          URL u = new URL(url);
-                          if ((!u.getProtocol().equals("https")
-                                  && !(http.isChecked() && u.getProtocol().equals("http")))
-                              || u.getHost().isEmpty()
-                              || u.getUserInfo() != null
-                              || u.getQuery() != null
-                              || u.getRef() != null
-                              || !u.getPath().isEmpty())
-                            throw new IOException(
-                                "Gunakan alamat HTTP(S) tanpa path; HTTP perlu diizinkan.");
-                          if (token.length() < 24)
-                            throw new IOException("Token operator minimal 24 karakter.");
-                        }
-                        String path = folder.getText().toString().trim();
-                        if (!path.startsWith("DCIM/") || !path.endsWith("/") || path.contains(".."))
-                          throw new IOException("Folder harus diawali DCIM/ dan diakhiri /.");
-                        Prefs.set(this, "server", url);
-                        Prefs.token(this, token.getText().toString().trim());
-                        Prefs.set(this, "folder", path);
-                        Prefs.p(this)
-                            .edit()
-                            .putBoolean("wifi", wifi.isChecked())
-                            .putBoolean("http", http.isChecked())
-                            .apply();
-                        d.dismiss();
-                        Pipeline.kick(this);
-                        render();
-                      } catch (Exception e) {
-                        toast(Pipeline.safe(e));
+                      if (store.active() != null) {
+                        toast("Akhiri sesi sebelum mengganti folder kamera.");
+                        return;
                       }
+                      String path = folder.getText().toString().trim();
+                      if (!path.startsWith("DCIM/") || !path.endsWith("/") || path.contains("..")) {
+                        folder.setError("Folder harus diawali DCIM/ dan diakhiri /.");
+                        return;
+                      }
+                      Prefs.set(this, "folder", path);
+                      d.dismiss();
+                      Pipeline.kick(this);
+                      render();
                     }));
     d.show();
   }
@@ -961,9 +1215,20 @@ public class MainActivity extends Activity {
 
   private void open(String url) {
     try {
-      startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+      String link = AlbumLinks.normalize(url);
+      if (link.isEmpty()) {
+        toast("Tautan album belum diisi.");
+        return;
+      }
+      Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(link));
+      i.setPackage(Delivery.PHOTOS_PACKAGE);
+      try {
+        startActivity(i);
+      } catch (ActivityNotFoundException unavailable) {
+        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(link)));
+      }
     } catch (Exception e) {
-      toast("Browser tidak tersedia.");
+      toast("Album tidak dapat dibuka. Periksa tautan dan aplikasi Google Photos / browser.");
     }
   }
 
@@ -985,30 +1250,32 @@ public class MainActivity extends Activity {
   }
 
   private void qr(String id) {
+    JSONObject e = store.event(id);
+    if (e == null || e.optString("google_album_url").isEmpty()) {
+      toast("Simpan tautan berbagi album dahulu.");
+      return;
+    }
+    File[] file = new File[1];
     background(
-        "Membuat QR album…",
+        "Membuat QR album di HP…",
         () -> {
-          new Api(this).sync(store.event(id));
-          byte[] bytes = new Api(this).qr(id);
-          File dir = new File(getCacheDir(), "share");
-          dir.mkdirs();
-          try (FileOutputStream out = new FileOutputStream(new File(dir, id + ".png"))) {
-            out.write(bytes);
-          }
+          file[0] = Delivery.qr(this, e.optString("google_album_url"), id);
         },
         () -> {
-          File f = new File(new File(getCacheDir(), "share"), id + ".png");
-          Bitmap image = BitmapFactory.decodeFile(f.getAbsolutePath());
+          Bitmap image = BitmapFactory.decodeFile(file[0].getAbsolutePath());
           ImageView v = new ImageView(this);
           v.setImageBitmap(image);
           v.setAdjustViewBounds(true);
           v.setPadding(dp(24), dp(24), dp(24), dp(24));
-          new AlertDialog.Builder(this)
-              .setTitle("QR album · " + store.event(id).optString("title"))
-              .setView(v)
-              .setPositiveButton("Bagikan QR", (d, w) -> shareFile(f, "share"))
-              .setNegativeButton("Tutup", (d, w) -> image.recycle())
-              .show();
+          AlertDialog dialog =
+              new AlertDialog.Builder(this)
+                  .setTitle("QR album · " + e.optString("title"))
+                  .setView(v)
+                  .setPositiveButton("Bagikan QR", (d, w) -> shareFile(file[0], "share"))
+                  .setNegativeButton("Tutup", null)
+                  .create();
+          dialog.setOnDismissListener(d -> image.recycle());
+          dialog.show();
         });
   }
 

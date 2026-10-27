@@ -17,11 +17,15 @@ public class ShareProvider extends ContentProvider {
   File file(Uri uri) throws FileNotFoundException {
     try {
       String group = uri.getPathSegments().get(0), name = uri.getLastPathSegment();
-      if (!group.equals("results") && !group.equals("share")) throw new IOException();
+      if (uri.getPathSegments().size() != 2
+          || (!group.equals("results") && !group.equals("share") && !group.equals("deliveries")))
+        throw new IOException();
       File root =
           group.equals("results")
               ? new File(getContext().getFilesDir(), "results")
-              : new File(getContext().getCacheDir(), "share");
+              : group.equals("deliveries")
+                  ? new File(getContext().getFilesDir(), "deliveries")
+                  : new File(getContext().getCacheDir(), "share");
       File f = new File(root, name).getCanonicalFile();
       if (!f.getParentFile().equals(root.getCanonicalFile()) || !f.isFile())
         throw new IOException();
