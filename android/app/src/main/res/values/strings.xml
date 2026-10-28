@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">Alpi</string>
+    <string name="preview_loading">Menyiapkan pratinjau…</string>
+    <string name="auto_ready">Langsung masuk Siap Kirim setelah framing</string>
+    <string name="choose_photo">Pilih foto ini</string>
+    <string name="selection_count">Dipilih: %1$d · Siap kirim: %2$d</string>
 </resources>

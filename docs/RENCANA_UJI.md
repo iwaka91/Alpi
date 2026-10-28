@@ -1,4 +1,4 @@
-# Rencana uji perangkat Alpi 0.2
+# Rencana uji perangkat Alpi 0.3
 
 Target awal: Xiaomi 13T dengan Android/HyperOS yang dipakai operator. Uji aktual diperlukan; pemeriksaan otomatis tidak membuktikan pengelolaan baterai OEM atau antarmuka Google Photos.
 
@@ -24,3 +24,18 @@ Target awal: Xiaomi 13T dengan Android/HyperOS yang dipakai operator. Uji aktual
 | QR dipindai HP tamu | Membuka album yang tepat; uji akses/unduh dari Google Photos/browser tamu. |
 | Tanpa internet / kuota Google penuh | Framing/QR tetap berjalan; Google Photos mengendalikan kegagalan unggah dan operator tidak menandai selesai. |
 | Layar mati/penghemat baterai/reboot/force stop | Periksa latensi/status, notifikasi dan pemulihan sesi sesuai batas Android. |
+
+## Tambahan uji 0.3 pada HP
+
+| Skenario | Hasil yang diharapkan |
+| --- | --- |
+| Hemat/Seimbang/Detail/kustom | Dimensi dan kualitas sesuai, ukuran asli/hasil benar, asli tidak berubah. |
+| Basic dengan teks pendek/panjang | Pita terbaca dan teks terbungkus pada potret serta landscape. |
+| GPS kamera aktif/nonaktif, izin metadata diberikan/ditolak | Koordinat hanya tampil jika tersedia; tidak ada lokasi HP saat ini atau 0,0 buatan. |
+| Waktu EXIF berzona/tanpa zona/tidak tersedia | Waktu berasal dari sumber foto; data yang hilang dijelaskan dan tidak diganti jam proses. |
+| Pro satu logo transparan/JPG | Rasio tetap, semua posisi dapat dipilih, transparansi 0/50/100% benar. |
+| Teks dan logo satu posisi | Teks digeser tanpa menutup logo, tetap dalam foto. |
+| Edit teks, ganti tab, putar layar, batal/simpan | Draf bertahan; hanya Simpan yang mengubah acara. |
+| Simpan saat sesi aktif | Sesi lama tetap memakai snapshot; sesi berikutnya memakai konfigurasi baru. |
+| Proses ulang kelompok hasil | Membaca sumber asli; tidak menumpuk frame, kiriman aktif ditolak untuk diubah. |
+| Buka album sesudah unggah hasil kompresi | Tautan dan QR tetap album yang sama; penambahan album tetap dilakukan operator. |

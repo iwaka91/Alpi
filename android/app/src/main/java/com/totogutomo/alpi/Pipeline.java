@@ -172,53 +172,8 @@ public final class Pipeline {
   }
 
   public static String process(Context c, JSONObject item) throws Exception {
-    JSONObject cfg = new JSONObject(item.getString("config"));
-    Bitmap raw = decode(c, Uri.parse(item.getString("uri")), 2560);
-    Bitmap bitmap = raw.copy(Bitmap.Config.ARGB_8888, true);
-    raw.recycle();
-    Canvas canvas = new Canvas(bitmap);
-    Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
-    String fp = cfg.optString(bitmap.getHeight() > bitmap.getWidth() ? "portrait" : "landscape");
-    try {
-      boolean hasAny =
-          !cfg.optString("portrait").isEmpty() || !cfg.optString("landscape").isEmpty();
-      if (hasAny && fp.isEmpty()) throw new IOException("Frame untuk orientasi ini belum dipasang");
-      if (!fp.isEmpty()) {
-        File f = new File(fp);
-        if (!f.isFile())
-          throw new IOException(
-              "Frame tidak tersedia. Pilih Proses ulang setelah mengganti frame.");
-        Bitmap frame = decode(c, Uri.fromFile(f), 2560);
-        canvas.drawBitmap(
-            frame, null, new Rect(0, 0, bitmap.getWidth(), bitmap.getHeight()), paint);
-        frame.recycle();
-      }
-      String label = cfg.optString("label").trim();
-      if (!label.isEmpty()) {
-        float band = bitmap.getHeight() * .095f;
-        paint.setColor(Color.argb(215, 13, 56, 44));
-        canvas.drawRect(0, bitmap.getHeight() - band, bitmap.getWidth(), bitmap.getHeight(), paint);
-        paint.setColor(Color.WHITE);
-        paint.setTextSize(bitmap.getWidth() * .026f);
-        paint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        paint.setTextAlign(Paint.Align.CENTER);
-        while (paint.measureText(label) > bitmap.getWidth() * .88f)
-          paint.setTextSize(paint.getTextSize() - 1);
-        canvas.drawText(label, bitmap.getWidth() / 2f, bitmap.getHeight() - band * .38f, paint);
-      }
-      File dir = new File(c.getFilesDir(), "results");
-      dir.mkdirs();
-      File out = new File(dir, item.getString("id") + ".jpg"),
-          tmp = new File(dir, item.getString("id") + ".part");
-      try (FileOutputStream stream = new FileOutputStream(tmp)) {
-        if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 92, stream))
-          throw new IOException("Gagal menyimpan hasil");
-        stream.getFD().sync();
-      }
-      if (!tmp.renameTo(out)) throw new IOException("Gagal menyelesaikan berkas");
-      return out.getAbsolutePath();
-    } finally {
-      bitmap.recycle();
-    }
+    PhotoProcessor.Result result = PhotoProcessor.process(c, item);
+    Store.get(c).stats(item.getString("id"), result.stats);
+    return result.path;
   }
 }

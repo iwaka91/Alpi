@@ -16,7 +16,7 @@ public class Store extends SQLiteOpenHelper {
   }
 
   private Store(Context c) {
-    super(c, "alpi.db", null, 2);
+    super(c, "alpi.db", null, 3);
     setWriteAheadLoggingEnabled(true);
   }
 
@@ -26,7 +26,7 @@ public class Store extends SQLiteOpenHelper {
         "CREATE TABLE events(id TEXT PRIMARY KEY,title TEXT,description TEXT,pin TEXT,portrait TEXT"
             + " DEFAULT '',landscape TEXT DEFAULT '',label TEXT DEFAULT '',automatic INTEGER"
             + " DEFAULT 0,album_url TEXT DEFAULT '',google_album_url TEXT DEFAULT '',created"
-            + " INTEGER)");
+            + " INTEGER,processing TEXT DEFAULT '')");
     d.execSQL(
         "CREATE TABLE windows(id INTEGER PRIMARY KEY AUTOINCREMENT,event_id TEXT,start INTEGER,end"
             + " INTEGER,baseline INTEGER,config TEXT)");
@@ -34,7 +34,7 @@ public class Store extends SQLiteOpenHelper {
         "CREATE TABLE queue(id TEXT PRIMARY KEY,event_id TEXT,uri TEXT,captured INTEGER,config"
             + " TEXT,state TEXT,output TEXT DEFAULT '',error TEXT DEFAULT '',attempts INTEGER"
             + " DEFAULT 0,next_try INTEGER DEFAULT 0,visible INTEGER DEFAULT 1,created"
-            + " INTEGER,gallery_uri TEXT DEFAULT '',UNIQUE(event_id,uri))");
+            + " INTEGER,gallery_uri TEXT DEFAULT '',stats TEXT DEFAULT '',UNIQUE(event_id,uri))");
     createDeliveries(d);
   }
 
@@ -52,6 +52,10 @@ public class Store extends SQLiteOpenHelper {
       d.execSQL("ALTER TABLE queue ADD COLUMN gallery_uri TEXT DEFAULT ''");
       d.execSQL("UPDATE queue SET state='READY',error='',next_try=0 WHERE state='UPLOADING'");
       createDeliveries(d);
+    }
+    if (old < 3) {
+      d.execSQL("ALTER TABLE events ADD COLUMN processing TEXT DEFAULT ''");
+      d.execSQL("ALTER TABLE queue ADD COLUMN stats TEXT DEFAULT ''");
     }
   }
 
@@ -93,6 +97,7 @@ public class Store extends SQLiteOpenHelper {
     v.put("description", description);
     v.put("google_album_url", AlbumLinks.normalize(albumUrl));
     if (event(id) == null) {
+      v.put("processing", FrameSpec.fresh().data.toString());
       v.put("id", id);
       v.put("created", System.currentTimeMillis());
       getWritableDatabase().insertOrThrow("events", null, v);
@@ -100,7 +105,8 @@ public class Store extends SQLiteOpenHelper {
   }
 
   public synchronized void eventSet(String id, String field, String value) {
-    if (!Arrays.asList("portrait", "landscape", "label", "automatic", "google_album_url")
+    if (!Arrays.asList(
+            "portrait", "landscape", "label", "automatic", "google_album_url", "processing")
         .contains(field)) throw new IllegalArgumentException();
     ContentValues v = new ContentValues();
     v.put(field, value);
@@ -176,6 +182,44 @@ public class Store extends SQLiteOpenHelper {
     ContentValues v = new ContentValues();
     v.put("gallery_uri", uri);
     getWritableDatabase().update("queue", v, "id=?", new String[] {id});
+  }
+
+  public synchronized void stats(String id, JSONObject stats) {
+    ContentValues v = new ContentValues();
+    v.put("stats", stats.toString());
+    getWritableDatabase().update("queue", v, "id=?", new String[] {id});
+  }
+
+  public synchronized void reprocess(String eventId, Collection<String> ids) throws Exception {
+    JSONObject event = event(eventId);
+    if (event == null || ids.isEmpty())
+      throw new IllegalArgumentException("Pilih hasil foto dahulu.");
+    SQLiteDatabase db = getWritableDatabase();
+    db.beginTransaction();
+    try {
+      for (String id : ids) {
+        ContentValues v = new ContentValues();
+        v.put("config", event.toString());
+        v.put("attempts", 0);
+        v.put("state", "NEW");
+        v.put("output", "");
+        v.put("error", "");
+        v.put("stats", "");
+        v.put("next_try", 0);
+        if (db.update(
+                "queue",
+                v,
+                "id=? AND event_id=? AND state IN ('READY','REVIEW','ERROR','REJECTED')",
+                new String[] {id, eventId})
+            != 1)
+          throw new IllegalStateException(
+              "Foto dalam kiriman atau sudah selesai tidak bisa diubah. Kembalikan ke Siap Kirim"
+                  + " dahulu.");
+      }
+      db.setTransactionSuccessful();
+    } finally {
+      db.endTransaction();
+    }
   }
 
   public JSONObject pendingBatch() {

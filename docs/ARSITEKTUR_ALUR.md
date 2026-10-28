@@ -1,4 +1,4 @@
-# Arsitektur Alpi 0.2
+# Arsitektur Alpi 0.3
 
 APK Android Java menangani deteksi kamera, pengolahan frame, tinjauan, antrean dan QR secara lokal. Aplikasi Google Photos menangani autentikasi akun, unggah, album dan akses tamu. Tidak ada komunikasi langsung APK Alpi ke layanan internet.
 
@@ -42,3 +42,9 @@ Penerima tidak dijanjikan dapat memilih album. Operator menyelesaikan unggah dan
 ## Migrasi
 
 SQLite versi 2 menambah google_album_url, gallery_uri dan delivery_batches. URL server lama tetap di kolom album_url lama, tidak dijadikan QR Google Photos. Foto UPLOADING lama dikembalikan menjadi READY. Acara, frame, hasil dan DONE lama tidak dihapus. Migrasi berlaku untuk instalasi dengan tanda tangan APK yang kompatibel.
+
+## Generator dan kompresi 0.3
+
+SQLite versi 3 menambah JSON konfigurasi pemrosesan pada acara serta JSON statistik pada antrean. Frame PNG lama dan generator Basic/Pro merupakan pilihan mode. Pembacaan EXIF/MediaStore, rendering dan kompresi berjalan serial di HP. Generator memakai koordinat relatif dan merapikan irisan teks/logo. Studio menggunakan renderer yang sama untuk pratinjau.
+
+Kompresi membatasi sisi panjang tanpa memperbesar foto kecil; kualitas JPEG dan dimensi tersimpan per acara. Proses ulang selalu membaca foto asli, menyalin konfigurasi terbaru dan menjaga kelompok kiriman aktif dari perubahan. Snapshot sesi lama tidak berubah setelah operator mengedit acara.

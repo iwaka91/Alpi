@@ -168,7 +168,7 @@ public class MainActivity extends Activity {
     header.setPadding(dp(22), dp(10), dp(22), dp(6));
     TextView brand = text("alpi", 33, GREEN, true);
     header.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
-    TextView mark = text("ALBUM PHOTO LIVE\n0.2.0 BETA", 10, MUTED, true);
+    TextView mark = text("ALBUM PHOTO LIVE\n0.3.0 BETA", 10, MUTED, true);
     mark.setGravity(Gravity.END);
     header.addView(mark);
     root.addView(header);
@@ -395,11 +395,26 @@ public class MainActivity extends Activity {
           render();
         });
     action("Ubah acara & tautan album", false, () -> editEvent(e));
+    FrameSpec spec = FrameSpec.fromEvent(e);
+    LinearLayout studio = card();
+    studio.addView(text("Kompresi & generator frame", 20, INK, true));
+    studio.addView(text(spec.modeName() + " · " + spec.summary(), 14, MUTED, false));
+    studio.addView(button("Kompresi hasil foto", false, () -> studio(e, "compression")));
+    studio.addView(button("Generator Basic · teks, waktu & GPS", false, () -> studio(e, "basic")));
+    studio.addView(button("Generator Pro · logo & tata letak", true, () -> studio(e, "pro")));
+    studio.addView(
+        text(
+            "Pratinjau tersedia di studio. Mulai sesi baru setelah menyimpan pengaturan. Hasil lama"
+                + " dapat diproses ulang dari foto asli.",
+            12,
+            MUTED,
+            false));
     LinearLayout frames = card();
-    frames.addView(text("Frame & postproses", 20, INK, true));
+    frames.addView(text("Frame PNG & pita lama", 20, INK, true));
     frames.addView(
         text(
-            "Impor PNG transparan dengan rasio yang sama dengan foto. Foto asli tetap tersimpan.",
+            "Impor PNG transparan dengan rasio yang sama dengan foto. Untuk memakainya, pilih mode"
+                + " PNG / pita lama di tab Kompresi pada studio.",
             13,
             MUTED,
             false));
@@ -433,7 +448,7 @@ public class MainActivity extends Activity {
             false,
             () -> textBand(e)));
     Switch auto = new Switch(this);
-    auto.setText("Langsung masuk Siap Kirim setelah framing");
+    auto.setText(R.string.auto_ready);
     auto.setTextSize(13);
     auto.setPadding(0, dp(10), 0, dp(14));
     auto.setChecked(e.optInt("automatic") == 1);
@@ -686,7 +701,11 @@ public class MainActivity extends Activity {
     selectedPhotos.retainAll(valid);
     if (queueOnly && !ready.isEmpty()) {
       TextView count =
-          text(selectedPhotos.size() + " dipilih · " + ready.size() + " siap kirim", 16, INK, true);
+          text(
+              getString(R.string.selection_count, selectedPhotos.size(), ready.size()),
+              16,
+              INK,
+              true);
       body.addView(count);
       action(
           "Pilih 30 pertama / semua jika kurang",
@@ -707,6 +726,35 @@ public class MainActivity extends Activity {
             refresh();
           });
       action("Kirim pilihan ke Google Photos", true, this::sendSelected);
+      action(
+          "Terapkan kompresi / frame terbaru ke pilihan",
+          false,
+          () -> {
+            if (selectedPhotos.isEmpty()) {
+              toast("Pilih foto dahulu.");
+              return;
+            }
+            ArrayList<String> ids = new ArrayList<>(selectedPhotos);
+            new AlertDialog.Builder(this)
+                .setTitle("Proses ulang " + ids.size() + " foto?")
+                .setMessage(
+                    "Hasil dibuat kembali dari foto asli memakai kompresi dan frame acara saat ini."
+                        + " Pilihan akan menunggu proses lagi.")
+                .setPositiveButton(
+                    "Proses ulang",
+                    (d, w) -> {
+                      try {
+                        store.reprocess(selected(), ids);
+                        selectedPhotos.clear();
+                        Pipeline.kick(this);
+                        refresh();
+                      } catch (Exception ex) {
+                        toast(Pipeline.safe(ex));
+                      }
+                    })
+                .setNegativeButton("Batal", null)
+                .show();
+          });
       action(
           "Simpan pilihan ke galeri HP",
           false,
@@ -752,7 +800,7 @@ public class MainActivity extends Activity {
               false));
       if (readyOnly) {
         CheckBox choice = new CheckBox(this);
-        choice.setText("Pilih foto ini");
+        choice.setText(R.string.choose_photo);
         choice.setChecked(selectedPhotos.contains(id));
         choice.setMinHeight(dp(48));
         choice.setOnCheckedChangeListener(
@@ -766,7 +814,8 @@ public class MainActivity extends Activity {
               else selectedPhotos.remove(id);
               if (count != null)
                 count.setText(
-                    selectedPhotos.size() + " dipilih · " + readyPhotos().size() + " siap kirim");
+                    getString(
+                        R.string.selection_count, selectedPhotos.size(), readyPhotos().size()));
             });
         c.addView(choice);
       }
@@ -793,6 +842,31 @@ public class MainActivity extends Activity {
                 "Lihat hasil foto",
                 false,
                 () -> previewImage(Uri.fromFile(new File(output)), false, "Hasil foto")));
+      }
+      if (!q.optString("stats").isEmpty()) {
+        try {
+          JSONObject stats = new JSONObject(q.optString("stats"));
+          long original = stats.optLong("source"), result = stats.optLong("bytes");
+          String size =
+              "Hasil "
+                  + FrameSpec.size(result)
+                  + " · "
+                  + stats.optInt("width")
+                  + "×"
+                  + stats.optInt("height")
+                  + " px";
+          if (original > 0) {
+            size = FrameSpec.size(original) + " → " + size;
+            if (result < original)
+              size += " · hemat " + Math.round(100d * (original - result) / original) + "%";
+          }
+          c.addView(text(size, 12, GREEN, false));
+          JSONArray notes = stats.optJSONArray("notes");
+          if (notes != null)
+            for (int n = 0; n < notes.length(); n++)
+              c.addView(text(notes.optString(n), 12, MUTED, false));
+        } catch (JSONException ignored) {
+        }
       }
       if (!q.optString("error").isEmpty()) c.addView(text(q.optString("error"), 12, MUTED, false));
       c.addView(
@@ -832,7 +906,7 @@ public class MainActivity extends Activity {
           || state.equals("READY")
           || state.equals("ERROR")
           || state.equals("REJECTED"))
-        c.addView(button("Proses ulang dengan frame sekarang", false, () -> reprocess(q)));
+        c.addView(button("Proses ulang · kompresi & frame sekarang", false, () -> reprocess(q)));
       if (state.equals("SENT") || state.equals("DONE"))
         c.addView(
             button(
@@ -861,15 +935,22 @@ public class MainActivity extends Activity {
               : "Belum ada foto untuk acara ini. Mulai sesi, lalu potret dengan kamera bawaan.");
   }
 
+  private void studio(JSONObject event, String tab) {
+    startActivity(
+        new Intent(this, FrameEditorActivity.class)
+            .putExtra("event_id", event.optString("id"))
+            .putExtra("tab", tab));
+  }
+
   private void reprocess(JSONObject q) {
-    ContentValues v = new ContentValues();
-    v.put("config", store.event(q.optString("event_id")).toString());
-    v.put("attempts", 0);
-    store.getWritableDatabase().update("queue", v, "id=?", new String[] {q.optString("id")});
-    store.state(q.optString("id"), "NEW", "", "", 0);
-    selectedPhotos.remove(q.optString("id"));
-    Pipeline.kick(this);
-    refresh();
+    try {
+      store.reprocess(q.optString("event_id"), Collections.singleton(q.optString("id")));
+      selectedPhotos.remove(q.optString("id"));
+      Pipeline.kick(this);
+      refresh();
+    } catch (Exception e) {
+      toast(Pipeline.safe(e));
+    }
   }
 
   private void sendSelected() {
@@ -933,7 +1014,8 @@ public class MainActivity extends Activity {
             MUTED,
             false));
     if (!batch.optString("album_url").isEmpty())
-      c.addView(button("Buka album & periksa ↗", false, () -> open(batch.optString("album_url"))));
+      c.addView(
+          button("Buka album → Tambahkan foto ↗", false, () -> open(batch.optString("album_url"))));
     c.addView(
         button(
             "Sudah masuk album · tandai selesai",
@@ -1058,7 +1140,7 @@ public class MainActivity extends Activity {
     c.addView(
         text(
             "1. Buat acara dan tempel tautan berbagi album Google Photos.\n"
-                + "2. Impor frame PNG atau isi pita kegiatan.\n"
+                + "2. Atur kompresi dan generator Basic/Pro, atau pakai PNG/pita lama.\n"
                 + "3. Mulai sesi, lalu buka kamera bawaan.\n"
                 + "4. Tinjau hasil di Foto, lalu pilih foto di Siap Kirim.\n"
                 + "5. Kirim ke Google Photos; selesaikan unggah dan tambahkan ke album di sana.\n"
@@ -1084,8 +1166,9 @@ public class MainActivity extends Activity {
             false));
     hint(
         "Alpi · Album Photo Live\n"
-            + "Versi 0.2.0-beta · Tanpa server dan Google Cloud Console.\n"
-            + "Hasil JPEG, sisi panjang maksimal 2.560 px, kualitas 92. Foto asli tidak diubah.");
+            + "Versi 0.3.0-beta · Tanpa server dan Google Cloud Console.\n"
+            + "Kompresi JPEG dan frame diatur per acara melalui Studio frame. Foto asli tidak"
+            + " diubah.");
   }
 
   private void settings() {

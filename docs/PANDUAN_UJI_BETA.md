@@ -1,12 +1,12 @@
-# Panduan Alpi 0.2.0-beta
+# Panduan Alpi 0.3.0-beta
 
 Versi ini memakai Google Photos untuk album tamu. Tidak perlu laptop server, token operator, proyek Google Cloud atau login Google di Alpi. Akun Google dikelola di aplikasi Google Photos.
 
 ## 1. Pasang APK
 
-Unduh `Alpi-v0.2.0-beta.apk` dari [rilis GitHub](https://github.com/iwaka91/Alpi/releases/tag/v0.2.0-beta), lalu pasang pada Android 10 atau lebih baru.
+Unduh `Alpi-v0.3.0-beta.apk` dari [rilis GitHub](https://github.com/iwaka91/Alpi/releases/tag/v0.3.0-beta), lalu pasang pada Android 10 atau lebih baru.
 
-APK beta memakai tanda tangan debug. Jika Android menolak pembaruan karena tanda tangan berbeda dengan APK 0.1, simpan dulu hasil penting melalui menu berbagi versi lama, lalu hapus aplikasi lama dan pasang versi ini. Menghapus Alpi juga menghapus acara, frame impor dan hasil privat di Alpi. Foto asli kamera tidak dihapus. Migrasi database otomatis berlaku bila APK dapat dipasang sebagai pembaruan dengan tanda tangan yang sama.
+APK beta memakai tanda tangan debug. Jika Android menolak pembaruan karena tanda tangan berbeda dengan APK 0.1/0.2, simpan dulu hasil penting melalui menu berbagi versi lama, lalu hapus aplikasi lama dan pasang versi ini. Menghapus Alpi juga menghapus acara, frame impor dan hasil privat di Alpi. Foto asli kamera tidak dihapus. Migrasi database otomatis berlaku bila APK dapat dipasang sebagai pembaruan dengan tanda tangan yang sama.
 
 Izinkan **semua foto** dan notifikasi. Izin beberapa foto saja tidak cukup untuk mendeteksi jepretan berikutnya secara otomatis. Pada Xiaomi/HyperOS, periksa pengaturan baterai Alpi dan notifikasi sesi; gunakan mode baterai yang mengizinkan pemantauan selama acara.
 
@@ -22,6 +22,8 @@ Tautan album bukan alamat unggah. Alpi tidak membuat atau mengelola album Google
 
 ## 3. Pasang frame dan mulai sesi
 
+Pada versi 0.3, gunakan **Kompresi & generator frame** di acara untuk memilih kompresi dan mode Basic/Pro. Lihat [panduan studio](STUDIO_FRAME_DAN_KOMPRESI.md). Untuk cara PNG lama di bawah, pilih **Gunakan frame PNG / pita lama** dari tab Kompresi dan simpan.
+
 1. Di acara, impor frame PNG transparan untuk potret dan/atau landscape. Gunakan rasio yang sama dengan hasil kamera.
 2. Isi **Teks pita** jika ingin penanda kegiatan tanpa desain PNG.
 3. Pilih mode: sakelar mati berarti hasil menunggu tinjauan; sakelar hidup berarti langsung masuk **Siap Kirim** setelah framing. Sakelar ini tidak mengirim ke Google Photos otomatis.
@@ -31,7 +33,7 @@ Tautan album bukan alamat unggah. Alpi tidak membuat atau mengelola album Google
 
 Hanya foto baru di folder kamera setelah sesi dimulai yang dipantau. Folder default `DCIM/Camera/` dapat diganti di **Lainnya → Folder kamera** saat sesi berhenti. Foto lama, screenshot dan hasil ekspor `Pictures/Alpi` tidak dipantau. Perubahan frame/mode berlaku pada sesi baru. Hasil lama dapat diproses ulang memakai konfigurasi acara sekarang.
 
-Hasil JPEG: sisi panjang maksimal 2.560 piksel, kualitas 92. Foto asli tidak diubah. Jika frame salah orientasi belum dipasang sementara orientasi lain memiliki frame, Alpi menahan foto untuk diperbaiki.
+Hasil JPEG mengikuti kompresi acara (1280–3200 px, kualitas 60–95); acara baru memakai Seimbang 2048/82. Foto asli tidak diubah. Jika frame salah orientasi belum dipasang sementara orientasi lain memiliki frame, Alpi menahan foto untuk diperbaiki.
 
 ## 4. Tinjau dan kirim satu kelompok foto
 

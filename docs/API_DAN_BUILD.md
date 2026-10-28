@@ -1,4 +1,4 @@
-# Build dan integrasi Alpi 0.2
+# Build dan integrasi Alpi 0.3
 
 ## Build Android
 
@@ -11,7 +11,7 @@ cd android
 
 Hasil: app/build/outputs/apk/debug/app-debug.apk. APK bertanda tangan debug untuk beta; tanda tangan dari mesin/CI berbeda dapat tidak kompatibel untuk pembaruan. Jangan menghapus instalasi lama sebelum mengekspor hasil penting. Rilis produksi memerlukan keystore yang disimpan pemilik dan proses signing tetap.
 
-Dependensi runtime: ZXing Core 3.5.3 untuk QR lokal (Apache-2.0). Dependensi tes: JUnit 4.13.2 dan Robolectric 4.14.1. Tidak ada SDK/API Google Photos, OAuth client ID, API key atau token operator dalam APK 0.2.
+Dependensi runtime: ZXing Core 3.5.3 untuk QR lokal dan AndroidX ExifInterface 1.4.2 untuk metadata (Apache-2.0). Dependensi tes: JUnit 4.13.2 dan Robolectric 4.14.1. Tidak ada SDK/API Google Photos, OAuth client ID, API key atau token operator dalam APK 0.3.
 
 GitHub Actions menjalankan assembleDebug, lintDebug dan testDebugUnitTest. Setelah seluruh pemeriksaan lulus pada push ke main, job release membuat prerelease sesuai versionName bila tag rilis belum ada. Biner rilis diberi nama Alpi-v<versi>.apk. Rilis lama tidak ditimpa oleh build ulang.
 
@@ -32,10 +32,18 @@ Provider baca-saja Alpi membatasi URI ke dua segmen dan berkas langsung pada res
 
 ## Penyimpanan dan privasi
 
-SQLite alpi.db versi 2 menyimpan acara, jendela sesi, antrean, URI galeri dan delivery_batches. Frame/hasil berada di files privat. Tautan berbagi album disimpan pada acara; hak akses tamu mengikuti Google Photos. Backup Android dimatikan. Menghapus data/uninstall menghapus penyimpanan privat.
+SQLite alpi.db versi 3 menyimpan acara, jendela sesi, antrean, URI galeri dan delivery_batches. Frame/hasil berada di files privat. Tautan berbagi album disimpan pada acara; hak akses tamu mengikuti Google Photos. Backup Android dimatikan. Menghapus data/uninstall menghapus penyimpanan privat.
 
-Tidak ada izin INTERNET atau ACCESS_NETWORK_STATE dalam APK 0.2. Proses lokal tidak bergantung pada jaringan. Google Photos dan browser memakai koneksinya sendiri untuk unggah/album.
+Tidak ada izin INTERNET atau ACCESS_NETWORK_STATE dalam APK 0.3. Proses lokal tidak bergantung pada jaringan. Google Photos dan browser memakai koneksinya sendiri untuk unggah/album.
 
 ## Riwayat server
 
-Folder server/, compose.yaml, .env.example dan MULAI_SERVER_WINDOWS.bat adalah backend 0.1 yang dipertahankan. Kontrak API dan cara menjalankannya dapat dilihat pada [sumber versi 0.1](https://github.com/iwaka91/Alpi/tree/bb0d4ad93c5d4b0d860fee4f8bf9fa45d80e1b74). APK 0.2 tidak memakai backend ini. Tes API lama tetap dijalankan CI untuk menjaga sumber yang dipertahankan.
+Folder server/, compose.yaml, .env.example dan MULAI_SERVER_WINDOWS.bat adalah backend 0.1 yang dipertahankan. Kontrak API dan cara menjalankannya dapat dilihat pada [sumber versi 0.1](https://github.com/iwaka91/Alpi/tree/bb0d4ad93c5d4b0d860fee4f8bf9fa45d80e1b74). APK 0.3 tidak memakai backend ini. Tes API lama tetap dijalankan CI untuk menjaga sumber yang dipertahankan.
+
+## Studio dan pemrosesan 0.3
+
+FrameSpec menyimpan konfigurasi JSON pada events.processing. Seluruh konfigurasi acara disalin ke windows.config dan queue.config pada sesi. PhotoMetadata membaca EXIF/DATE_TAKEN dan izin ACCESS_MEDIA_LOCATION + setRequireOriginal untuk GPS MediaStore. Tidak ada layanan lokasi langsung, geocoding atau izin internet.
+
+PhotoProcessor merender dari sumber asli, memakai FramePainter yang juga digunakan pratinjau studio, lalu menulis JPEG pada berkas sementara sebelum rename atomik. Tanggal pengambilan EXIF dipertahankan, orientasi hasil normal, GPS tidak disalin ke EXIF. Statistik sumber/hasil/dimensi/catatan metadata disimpan di queue.stats. Store.reprocess memakai transaksi dan menolak foto SHARED/SENT untuk menjaga salinan kiriman tetap.
+
+Migrasi SQLite 2→3 menambah events.processing dan queue.stats tanpa menghapus data. Konfigurasi lama tanpa processing memakai perilaku 0.2; acara baru memakai kompresi Seimbang. Logo impor privat dan immutable per impor, sehingga sesi lama tetap bisa memakai logo yang disalin pada konfigurasinya.
